@@ -315,6 +315,7 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
                             }
                         };
 
+
                         let mut msg = sig_buffer.to_vec();
                         msg.append(&mut bit_vec_buffer.to_vec());
                         msg.append(&mut sig_buffer2.to_vec());
@@ -341,7 +342,6 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
                             // Now here we do subtract instead of add!
                             let start_index = group_id * local_expected_sigs;
                             for (local_index, available) in bit_vec.iter().enumerate() {
-                                // This is probably never used atm. I need to drop pubs somewhere.
                                 if !available || local_index % participation_modifier == 0 {
                                     let index = start_index + local_index;
                                     agg_pub.add_public_key(&invert_pub(local_public_keys_copy.get(index).unwrap()), false).unwrap();
@@ -349,7 +349,6 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
                             }
 
                             for (local_index, available) in bit_vec.iter().enumerate() {
-                                // This is probably never used atm. I need to drop pubs somewhere.
                                 if local_index % participation_modifier == 0 {
                                     let index = start_index + local_index;
                                     agg_pub.add_public_key(local_public_keys_copy.get(index).unwrap(), false).unwrap();
@@ -359,7 +358,6 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
                             let mut pub_key2 = map.get(&group_id).unwrap().clone();
 
                             for (local_index, available) in bit_vec2.iter().enumerate() {
-                                // This is probably never used atm. I need to drop pubs somewhere.
                                 if !available || local_index % participation_modifier == 0 {
                                     let index = start_index + local_index;
                                     pub_key2.add_public_key(&invert_pub(local_public_keys_copy.get(index).unwrap()), false).unwrap();
@@ -367,7 +365,6 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
                             }
 
                             for (local_index, available) in bit_vec2.iter().enumerate() {
-                                // This is probably never used atm. I need to drop pubs somewhere.
                                 if local_index % participation_modifier == 0 {
                                     let index = start_index + local_index;
                                     pub_key2.add_public_key(local_public_keys_copy.get(index).unwrap(), false).unwrap();

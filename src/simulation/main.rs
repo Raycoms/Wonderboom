@@ -145,6 +145,7 @@ pub(crate) async fn main() {
             dep_based.run().await;
             println!("Now 4x: {}", time_now.elapsed().as_millis());
         }
+        network -= 200;
 
         let time_final = time_now.elapsed().as_millis() + network;
 
