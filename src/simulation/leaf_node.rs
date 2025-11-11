@@ -12,8 +12,6 @@ use tokio::sync::broadcast;
 use tokio::sync::broadcast::Sender;
 
 pub struct LeafNode {
-    // Fanout.
-    pub(crate) m: usize,
     // Proposal byte vector.
     pub proposal: Arc<Vec<byte>>,
     pub public_keys: Arc<Vec<Arc<PublicKey>>>,
@@ -27,13 +25,12 @@ pub struct LeafNode {
 
 impl LeafNode {
 
-    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Vec<Arc<PublicKey>>, my_sig: Signature, agg_sig: Signature, ip: &String, participation_modifier: usize) -> Self {
+    pub fn new(proposal: &Vec<u8>, public_keys: Vec<Arc<PublicKey>>, my_sig: Signature, agg_sig: Signature, ip: &String, participation_modifier: usize) -> Self {
         let mut rng = rand::thread_rng();
         let mut ikm = [0u8; 32];
         rng.fill_bytes(&mut ikm);
 
         LeafNode {
-            m,
             proposal: Arc::new(proposal.clone()),
             public_keys: Arc::new(public_keys),
             my_sig,
@@ -49,7 +46,7 @@ impl LeafNode {
     pub async fn connect(&mut self) {
 
         // We set up connections for: parent nodes.
-        setup_parent_connections(self.ip.clone(), 10_000, self.m, &mut self.parent_channels).await;
+        setup_parent_connections(self.ip.clone(), &mut self.parent_channels).await;
         println!("Finished preparing leaf connections");
 
         for i in 0..4 {
@@ -70,7 +67,6 @@ impl LeafNode {
         println!("Starting up Leaf node");
 
         self.verify(self.participation_modifier).await;
-        self.verify(self.participation_modifier).await;
 
         self.parent_channels.send(self.my_sig.clone()).unwrap();
         println!("Awaiting sending proposal");
@@ -89,7 +85,7 @@ impl LeafNode {
             handles.push(RUN_POOL.spawn(async move {
                 for index in j..(j+share) {
                     if index % participation_modifier == 0 {
-                        pubs_cache_copy.add_public_key(&crate::simulation::depth_based_internal_aggregator::invert_pub(pubs_copy.get(index).unwrap()), false).unwrap();
+                        pubs_cache_copy.add_public_key(&invert_pub(pubs_copy.get(index).unwrap()), false).unwrap();
                     }
                 }
 
@@ -120,10 +116,21 @@ impl LeafNode {
 
 }
 
-pub async fn setup_parent_connections(ip: String, base_port : usize, range: usize, sender: &mut Sender<Signature>) {
-    for i in 0..(range -1) {
-        let port = base_port + 1000 + i;
-        let addr = format!("{}:{}", ip, port);
+pub fn invert_pub(pk: &PublicKey) -> PublicKey {
+    let affine: &blst::blst_p1_affine = pk.into();
+    let mut p1 = blst::blst_p1::default();
+    unsafe { blst::blst_p1_from_affine(&mut p1, affine) };
+    unsafe { blst::blst_p1_cneg(&mut p1, true) };
+    let mut neg_affine = blst::blst_p1_affine::default();
+    unsafe { blst::blst_p1_to_affine(&mut neg_affine, &p1) };
+    PublicKey::from(neg_affine)
+}
+
+pub async fn setup_parent_connections(ip: String, sender: &mut Sender<Signature>) {
+
+    // Fake
+    for i in 0..2048-1 {
+        let addr = format!("{}:{}", ip, 20_000 + i);
         let listener = TcpListener::bind(&addr).await.unwrap();
 
         // Spawn a task to accept connections on this listener
@@ -145,20 +152,21 @@ pub async fn setup_parent_connections(ip: String, base_port : usize, range: usiz
         });
     }
 
-    let addr = format!("{}:{}", ip, base_port);
-
+    // Real
+    let addr = format!("{}:{}", ip, 10_000);
     let listener = TcpListener::bind(&addr).await.unwrap();
-    let mut rx = sender.subscribe();
-    RUN_POOL.spawn(async move {
-        // Spawn a task to accept connections on this listener
 
+    // Spawn a task to accept connections on this listener
+    let mut rx2 = sender.subscribe();
+
+    RUN_POOL.spawn(async move {
         match listener.accept().await {
             Ok((mut socket, addr)) => {
                 // Spawn a new task for each connection
-                if let Ok(sig) = rx.recv().await {
+                if let Ok(sig) = rx2.recv().await {
                     socket.write(&sig.to_bytes()).await.unwrap();
                 }
-                drop(rx);
+                drop(rx2);
             }
             Err(e) => {
                 eprintln!("Failed to accept connection: {}", e);

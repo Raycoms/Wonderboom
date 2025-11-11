@@ -3,9 +3,9 @@
 #tc qdisc add dev lo root netem delay 200ms
 ulimit -n 100000
 
-configurations="256 320"
-cores="2 4 6 8 10 12 14 16"
-participationrate="6 20 200"
+configurations="1018 1250"
+cores="4"
+participationrate="6"
 
 for x in $configurations; do
     for y in $cores; do
@@ -15,5 +15,3 @@ for x in $configurations; do
         done
     done
 done
-
-

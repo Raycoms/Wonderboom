@@ -13,8 +13,6 @@ use tokio::net::{TcpStream};
 use tokio::sync::{broadcast, mpsc};
 
 pub struct LeafAggregator {
-    // Fanout.
-    pub(crate) m: usize,
     // Proposal byte vector.
     pub proposal: Arc<Vec<byte>>,
     pub public_key: PublicKey,
@@ -29,7 +27,6 @@ pub struct LeafAggregator {
 impl Default for LeafAggregator {
     fn default() -> Self {
         LeafAggregator {
-            m: 0,
             public_key: PublicKey::default(),
             private_key: Arc::new(SecretKey::default()),
             proposal: Arc::new(Vec::new()),
@@ -44,7 +41,7 @@ impl Default for LeafAggregator {
 
 impl LeafAggregator {
 
-    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Vec<Arc<PublicKey>>, ip: &String, private_keys: &Vec<Arc<SecretKey>>) -> Self {
+    pub fn new(proposal: &Vec<u8>, public_keys: Vec<Arc<PublicKey>>, ip: &String, private_keys: &Vec<Arc<SecretKey>>) -> Self {
         let mut rng = rand::thread_rng();
         let mut ikm = [0u8; 32];
         rng.fill_bytes(&mut ikm);
@@ -52,7 +49,6 @@ impl LeafAggregator {
         let private_key = private_keys.get(0).unwrap().clone();
 
         LeafAggregator {
-            m,
             public_key: private_key.sk_to_pk(),
             private_key,
             proposal: Arc::new(proposal.clone()),
@@ -68,10 +64,10 @@ impl LeafAggregator {
         // We set up connections for: Leaf nodes, siblings & parent nodes.
 
         // Signature processing channel. todo move to constructor, those need to stay alive.
-        let (mut signature_sender, mut signature_receiver) = async_channel::bounded(self.m);
+        let (mut signature_sender, mut signature_receiver) = async_channel::bounded(2048);
 
         // Leaf nodes will send out messages to their parent
-        connect_to_leaf_nodes( self.ip.clone(), 10_000, self.m, signature_sender, &mut self.leaf_channels).await;
+        connect_to_leaf_nodes( self.ip.clone(), signature_sender, &mut self.leaf_channels).await;
         println!("Finished preparing Validator leaf connections");
 
         // So we could verify them all independently.
@@ -92,7 +88,7 @@ impl LeafAggregator {
             });
         }
 
-        setup_parent_connections(self.ip.clone(), 30_000, 128, &mut self.parent_channels, &self.private_key).await;
+        setup_parent_connections(self.ip.clone(), &mut self.parent_channels, &self.private_key).await;
     }
 
     // Run simulator by notifying all threads to send the message to the client.
@@ -111,7 +107,6 @@ impl LeafAggregator {
 
         let sig_map_copy = self.signature_map.clone();
         let pub_map_copy = self.public_keys.clone();
-        let m_copy = self.m.clone();
         let tx2 = tx.clone();
         RUN_POOL.spawn(async move {
             loop {
@@ -129,7 +124,7 @@ impl LeafAggregator {
                     vec = new_vec;
                 }
                 // After I got all stop querying them.
-                if curr_index >= m_copy {
+                if curr_index >= 2048 {
                     tx2.send(vec).await.unwrap();
                     drop(tx2);
                     break;
@@ -144,7 +139,6 @@ impl LeafAggregator {
         for _ in 0..4 {
             let mut rx2 = rx.clone();
             let mut final_agg_sender_copy = final_agg_sender.clone();
-            let m = self.m;
             //let proposal  = self.proposal.clone();
             RUN_POOL.spawn(async move {
                 'task: loop {
@@ -152,7 +146,7 @@ impl LeafAggregator {
                         Ok(sigs) => {
                             let mut pub_vec = Vec::with_capacity(sigs.len());
                             let mut sig_vec = Vec::with_capacity(sigs.len());
-                            let mut pub_bit_vec = BitVec::from_elem(m, false);
+                            let mut pub_bit_vec = BitVec::from_elem(2048, false);
 
                             for (idx, pub_key, sig) in sigs.iter() {
                                 pub_vec.push(pub_key.as_ref());
@@ -182,7 +176,7 @@ impl LeafAggregator {
             len += local_len;
             bit_vec.or(&local_bit_vec);
 
-            if len >= self.m {
+            if len >= 2048 {
                 break;
             }
         }
@@ -190,21 +184,11 @@ impl LeafAggregator {
         self.parent_channels.send((bit_vec, agg_sig.to_signature())).unwrap();
         self.parent_channels.closed().await;
     }
-
-    // Kill simulator by closing all sockets and killing all idling threads.
-    pub async fn kill(&mut self) {
-        // Send command to close channels and connections to all channels in all channel types.
-        // Send out the leaf votes.
-        let _ = self.leaf_channels.send(());
-
-        // Send out the sibling votes.
-        //let _ = self.sibling_channels.send(());
-    }
 }
 
-pub async fn connect_to_leaf_nodes(ip: String, base_port : usize, range: usize, signature_sender: async_channel::Sender<(usize, Signature)>, sender: &mut broadcast:: Sender<()>) {
-    for i in 0..range {
-        let port = base_port + i;
+pub async fn connect_to_leaf_nodes(ip: String, signature_sender: async_channel::Sender<(usize, Signature)>, sender: &mut broadcast:: Sender<()>) {
+    for i in 0..2048 {
+        let port = 10_000 + i;
         let addr = format!("{}:{}", ip, port);
 
         let mut rx = sender.subscribe();
@@ -230,33 +214,30 @@ pub async fn connect_to_leaf_nodes(ip: String, base_port : usize, range: usize, 
     }
 }
 
-pub async fn setup_parent_connections(ip: String, base_port : usize, range: usize, sender: &mut broadcast::Sender<(BitVec, Signature)>, private_key: &Arc<SecretKey>) {
-    for i in 0..range {
-        let port = base_port + i;
-        let addr = format!("{}:{}", ip, port);
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
+pub async fn setup_parent_connections(ip: String, sender: &mut broadcast::Sender<(BitVec, Signature)>, private_key: &Arc<SecretKey>) {
+    let port = 30_000;
+    let addr = format!("{}:{}", ip, port);
+    let mut stream = TcpStream::connect(&addr).await.unwrap();
 
-        // Spawn a task to accept connections on this listener
-        let mut rx = sender.subscribe();
-        let private_key = private_key.clone();
+    // Spawn a task to accept connections on this listener
+    let mut rx = sender.subscribe();
+    let private_key = private_key.clone();
 
-        RUN_POOL.spawn(async move {
+    RUN_POOL.spawn(async move {
 
-            // Connect to parent for sending.
-            // Just send a single message and disconnect.
-            if let Ok((bit_vec, agg_sig)) = rx.recv().await {
+        // Connect to parent for sending.
+        // Just send a single message and disconnect.
+        if let Ok((bit_vec, agg_sig)) = rx.recv().await {
+            let mut msg_bytes = agg_sig.to_bytes().to_vec();
+            msg_bytes.append(&mut bit_vec.to_bytes().to_vec());
 
-                let mut msg_bytes = agg_sig.to_bytes().to_vec();
-                msg_bytes.append(&mut bit_vec.to_bytes().to_vec());
+            let personal_sig = private_key.sign(&msg_bytes, DST, &[]);
 
-                let personal_sig = private_key.sign(&msg_bytes, DST, &[]);
-
-                let index : usize = 0;
-                stream.write(&index.to_be_bytes()).await.unwrap();
-                stream.write(&bit_vec.to_bytes()).await.unwrap();
-                stream.write(&agg_sig.to_bytes()).await.unwrap();
-                stream.write(&personal_sig.to_bytes()).await.unwrap();
-            }
-        });
-    }
+            let index: usize = 0;
+            stream.write(&index.to_be_bytes()).await.unwrap();
+            stream.write(&bit_vec.to_bytes()).await.unwrap();
+            stream.write(&agg_sig.to_bytes()).await.unwrap();
+            stream.write(&personal_sig.to_bytes()).await.unwrap();
+        }
+    });
 }

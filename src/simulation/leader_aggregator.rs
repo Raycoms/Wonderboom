@@ -7,23 +7,17 @@ use bit_vec::BitVec;
 use blst::{byte};
 use blst::BLST_ERROR::BLST_SUCCESS;
 use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey, Signature};
-use rand::{thread_rng, Rng};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::io::{AsyncReadExt};
+use tokio::net::{TcpListener};
 use tokio::sync::{broadcast};
 use crate::simulation::main::{DST, RUN_POOL};
 
-pub struct FirstInternalAggregator {
-    // Fanout.
-    pub(crate) m: usize,
-    // Depth they are in.
-    pub depth: usize,
+pub struct LeaderAggregator {
+    pub m: usize,
     // Proposal byte vector.
     pub proposal: Arc<Vec<byte>>,
     // Channels to wake up children connection to start reading messages.
     pub child_channels: broadcast::Sender<()>,
-    // Connection to send message to parents.
-    pub parent_channels: broadcast::Sender<(BitVec, Signature, BitVec, Signature)>,
     // Public keys of all nodes in the system.
     pub public_keys: Arc<Vec<Arc<PublicKey>>>,
     // Channel to hand signatures that come from the children and process them.
@@ -32,14 +26,12 @@ pub struct FirstInternalAggregator {
     pub private_key: Arc<SecretKey>
 }
 
-impl Default for FirstInternalAggregator {
+impl Default for LeaderAggregator {
     fn default() -> Self {
-        FirstInternalAggregator {
+        LeaderAggregator {
             m: 0,
-            depth: 2,
             proposal: Arc::new(Vec::new()),
             child_channels: broadcast::Sender::new(2),
-            parent_channels: broadcast::Sender::new(2),
             public_keys: Arc::new(Vec::new()),
             signature_receiver: async_channel::unbounded().1,
             ip: "127.0.0.1".to_string(),
@@ -48,12 +40,11 @@ impl Default for FirstInternalAggregator {
     }
 }
 
-impl FirstInternalAggregator {
+impl LeaderAggregator {
 
-    pub fn new(m: usize, depth: usize, proposal: &Vec<u8>, public_keys: Vec<Arc<PublicKey>>, ip: &String, private_keys: &Vec<Arc<SecretKey>>) -> Self {
-        FirstInternalAggregator {
+    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Vec<Arc<PublicKey>>, ip: &String, private_keys: &Vec<Arc<SecretKey>>) -> Self {
+        LeaderAggregator {
             m,
-            depth,
             proposal: Arc::new(proposal.clone()),
             public_keys: Arc::new(public_keys),
             ip: ip.clone(),
@@ -64,18 +55,11 @@ impl FirstInternalAggregator {
 
     pub async fn open_connections(&mut self) {
 
-        let (signature_sender, signature_receiver) = async_channel::bounded(self.m);
-        connect_to_child_nodes(self.ip.clone(), self.m, 30_000, &self.proposal, &self.public_keys, &mut self.child_channels, signature_sender).await;
+        let (signature_sender, signature_receiver) = async_channel::bounded(2048*16);
+        connect_to_child_nodes(self.m, self.ip.clone(), &self.proposal, &self.public_keys, &mut self.child_channels, signature_sender).await;
         self.signature_receiver=signature_receiver;
 
         println!("Finished preparing internal aggregator connections");
-    }
-
-    // Prepare simulator. Open all necessary sockets and initiate signatures and public keys.
-    pub async fn connect(&mut self) {
-        let base_port = 40_000 + (self.depth - 1) * 2000;
-        // Currently just leader, in the future this has to be a setting.
-        setup_parent_connections(self.ip.clone(), base_port, 128, &mut self.parent_channels, &self.private_key).await;
     }
 
     // Run simulator by notifying all threads to send the message to the client.
@@ -85,8 +69,6 @@ impl FirstInternalAggregator {
         self.child_channels.send(()).unwrap();
 
         println!("Finished preparing Validator sibling connections");
-
-        let m_copy = self.m.clone();
 
         let mut biggest_result_map: BTreeMap<usize, (BitVec, Signature, PublicKey)> = BTreeMap::new();
         let mut random_map: HashMap<usize, Vec<(BitVec, Signature, PublicKey)>> = HashMap::default();
@@ -114,14 +96,13 @@ impl FirstInternalAggregator {
                 continue
             }
 
-            if runs >= m_copy {
+            if runs >= self.m * 16 {
                 break;
             }
         }
 
         println!("Got all the sigs {} {}", biggest_result_map.len(), random_map.len());
 
-        let proposal_copy = self.proposal.clone();
         let biggest_future = RUN_POOL.spawn_blocking(move || {
             // do some expensive computation
             let mut pub_vec = Vec::new();
@@ -143,34 +124,7 @@ impl FirstInternalAggregator {
             return (result_bit_vec, agg_sig);
         });
 
-        let proposal_copy2 = self.proposal.clone();
-        let random_future = RUN_POOL.spawn_blocking(move || {
-            // do some expensive computation
-            let mut pub_vec = Vec::new();
-            let mut sig_vec = Vec::new();
-            let mut result_bit_vec = BitVec::new();
-            for (idx, vec) in random_map.iter() {
-                let (bit_vec, sig, pub_key) = vec.get(thread_rng().gen_range(0..(vec.len()-1))).unwrap();
-                result_bit_vec.extend(bit_vec);
-                sig_vec.push(sig);
-                pub_vec.push(pub_key);
-            }
-
-            // let agg_pub = AggregatePublicKey::aggregate(&pub_vec, false).unwrap().to_public_key();
-            let agg_sig = AggregateSignature::aggregate(&sig_vec, false).unwrap().to_signature();
-
-            //disable, not necessary.
-            //if !agg_sig.verify(false, &proposal_copy2, DST, &[], &agg_pub, false).eq(&BLST_SUCCESS) {
-            //    panic!("Failed to verify agg signature");
-            //}
-            return (result_bit_vec, agg_sig);
-        });
-
         let (biggest_bit_vec, biggest_agg_sig) = biggest_future.await.unwrap();
-        let (random_bit_vec, random_agg_sig) = random_future.await.unwrap();
-
-        self.parent_channels.send((biggest_bit_vec, biggest_agg_sig, random_bit_vec, random_agg_sig)).unwrap();
-        self.parent_channels.closed().await;
     }
 
     // Kill simulator by closing all sockets and killing all idling threads.
@@ -182,10 +136,10 @@ impl FirstInternalAggregator {
 }
 
 // connect to m child nodes. So we assume they're al
-pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, proposal: &Arc<Vec<byte>>, public_keys: &Arc<Vec<Arc<PublicKey>>>, sender: &broadcast::Sender<()>, signature_sender: Sender<(usize, BitVec, Signature, PublicKey)>) {
+pub async fn connect_to_child_nodes(m: usize, ip: String, proposal: &Arc<Vec<byte>>, public_keys: &Arc<Vec<Arc<PublicKey>>>, sender: &broadcast::Sender<()>, signature_sender: Sender<(usize, BitVec, Signature, PublicKey)>) {
 
     // Listen on base port for connection attempts.
-    let port = base_port;
+    let port = 30_000;
     let addr = format!("{}:{}", ip, port);
     let listener = TcpListener::bind(&addr).await.unwrap();
 
@@ -197,13 +151,12 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
     let proposal_copy = proposal.clone();
     let m_copy = m.clone();
     RUN_POOL.spawn(async move {
-        for _ in 0..m_copy {
+        for _ in 0..(m * 16) {
             let mut rx = local_sender.subscribe();
             let port_string = port.to_string();
             let local_sender_copy = sender_copy.clone();
             let local_public_keys_copy = public_keys_copy.clone();
             let local_proposal_copy = proposal_copy.clone();
-            let local_m_copy = m_copy.clone();
             match listener.accept().await {
                 Ok((mut socket, address)) => {
 
@@ -217,7 +170,7 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
                         socket.read_exact(&mut group_id_buffer).await.unwrap();
                         let group_id = usize::from_be_bytes(group_id_buffer);
 
-                        let mut bit_vec_buffer = vec![0u8; local_m_copy / 8];
+                        let mut bit_vec_buffer = vec![0u8; 2048 / 8];
                         socket.read_exact(&mut bit_vec_buffer).await.unwrap();
                         let bit_vec = BitVec::from_bytes(&bit_vec_buffer);
 
@@ -254,7 +207,7 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
                         } else {
 
                             let mut pubs = Vec::new();
-                            let start_index = group_id * local_m_copy;
+                            let start_index = group_id * 2048;
                             for (local_index, available) in bit_vec.iter().enumerate() {
                                 if available {
                                     let index = start_index + local_index;
@@ -283,40 +236,3 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
     });
 }
 
-
-pub async fn setup_parent_connections(ip: String, base_port : usize, range: usize, sender: &mut broadcast::Sender<(BitVec, Signature, BitVec, Signature)>, private_key: &Arc<SecretKey>) {
-    for i in 0..range {
-        let port = base_port + i;
-        let addr = format!("{}:{}", ip, port);
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
-
-        // Spawn a task to accept connections on this listener
-        let mut rx = sender.subscribe();
-        let private_key = private_key.clone();
-
-        RUN_POOL.spawn(async move {
-
-            // Connect to parent for sending.
-            // Just send a single message and disconnect.
-            if let Ok((bit_vec, agg_sig, bit_vec2, agg_sig_2)) = rx.recv().await {
-                let mut msg_bytes = agg_sig.to_bytes().to_vec();
-                msg_bytes.append(&mut bit_vec.to_bytes().to_vec());
-                msg_bytes.append(&mut agg_sig_2.to_bytes().to_vec());
-                msg_bytes.append(&mut bit_vec2.to_bytes().to_vec());
-
-                let personal_sig = private_key.sign(&msg_bytes, DST, &[]);
-
-                let index : usize = 0;
-                stream.write(&index.to_be_bytes()).await.unwrap();
-
-                stream.write(&bit_vec.to_bytes()).await.unwrap();
-                stream.write(&agg_sig.to_bytes()).await.unwrap();
-
-                stream.write(&bit_vec2.to_bytes()).await.unwrap();
-                stream.write(&agg_sig_2.to_bytes()).await.unwrap();
-
-                stream.write(&personal_sig.to_bytes()).await.unwrap();
-            }
-        });
-    }
-}
