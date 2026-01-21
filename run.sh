@@ -1,9 +1,18 @@
 #!/bin/sh
-#tc qdisc add dev eth0 root netem delay 200ms
-#tc qdisc add dev lo root netem delay 200ms
-ulimit -n 100000
 
-configurations="1018 1250"
+ip addr add 10.0.0.1/24 dev eth0
+ip addr add 10.0.0.2/24 dev eth0
+ip addr add 10.0.0.3/24 dev eth0
+
+echo "10.0.0.1  leaf" >> /etc/hosts
+echo "10.0.0.2  aggregator" >> /etc/hosts
+echo "10.0.0.3  leader" >> /etc/hosts
+
+tc qdisc add dev eth0 root netem delay 100ms
+#rate 100mbit
+ulimit -n 200000
+
+configurations="512 650 820 1018 1250"
 cores="4"
 participationrate="6"
 

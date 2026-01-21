@@ -1,5 +1,7 @@
 /target
 /.idea
-sigs_min_sig.txt
-sigs_min_pk.txt
+output/old/sigs_min_sig.txt
+output/old/sigs_min_pk.txt
 output/
+
+data/
