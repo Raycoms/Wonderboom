@@ -1,0 +1,14 @@
+# 100ms latency (200 rtt) + 100mb bw
+Result final: [10744, 10844, 10686, 10416, 10942, 10861, 11612, 12399, 12126, 10611] for Args { inner: ["/usr/local/bin/tree", "512", "4", "6"] }
+Result final: [12380, 14303, 14003, 14027, 14168, 13791, 14051, 13448, 14165, 12802] for Args { inner: ["/usr/local/bin/tree", "650", "4", "6"] }
+Result final: [15272, 16543, 16818, 15782, 15961, 15552, 16108, 15976, 15662, 15191] for Args { inner: ["/usr/local/bin/tree", "820", "4", "6"] }
+Result final: [17931, 23869, 16882, 17635, 18935, 19121, 18325, 17588, 16686, 18710] for Args { inner: ["/usr/local/bin/tree", "1018", "4", "6"] }
+Result final: [21222, 21768, 23452, 22682, 22434, 22697, 23231, 21988, 22602, 23056] for Args { inner: ["/usr/local/bin/tree", "1250", "4", "6"] }
+
+# 100ms latency (200 rtt) + no bw limit
+Result final: [11043, 9394, 9471, 12185, 12526, 10838, 9867, 9483, 9754, 9289] for Args { inner: ["/usr/local/bin/tree", "512", "4", "6"] }
+Result final: [12862, 11106, 11463, 11642, 11086, 14056, 12261, 14162, 14351, 15152] for Args { inner: ["/usr/local/bin/tree", "650", "4", "6"] }
+Result final: [15156, 16758, 16468, 16107, 16661, 16657, 16157, 16689, 16663, 16794] for Args { inner: ["/usr/local/bin/tree", "820", "4", "6"] }
+Result final: [17926, 18616, 18275, 18589, 19667, 19306, 19794, 19323, 19312, 19443] for Args { inner: ["/usr/local/bin/tree", "1018", "4", "6"] }
+Result final: [21888, 22650, 23482, 23537, 21489, 21306, 21956, 21186, 23421, 23028] for Args { inner: ["/usr/local/bin/tree", "1250", "4", "6"] }
+

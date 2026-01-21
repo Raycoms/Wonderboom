@@ -9,6 +9,7 @@ use once_cell::sync::Lazy;
 use rand_core::{OsRng, RngCore};
 use sha2::Sha256;
 use tokio::runtime::{Builder, Runtime};
+use crate::simulation::crypto;
 use crate::simulation::depth_based_internal_aggregator::DepthBasedInternalAggregator;
 use crate::simulation::first_internal_aggregator::FirstInternalAggregator;
 use crate::simulation::simulator::Simulator;
@@ -81,6 +82,8 @@ pub(crate) async fn main() {
     let additional_depth = 2;
     let leader_divider = 1;
 
+    let ((private_keys, public_keys, signatures), proposal) = crypto::generate_or_load((m/16).pow( (additional_depth + 1) as u32) * m / leader_divider).await;
+
     // Set up simulator connections.
 
     // Random 100KB block data (about realistic).
@@ -88,11 +91,11 @@ pub(crate) async fn main() {
     OsRng.fill_bytes(&mut proposal);
 
     let mut simulator = Simulator::new(m, additional_depth, &proposal, leader_divider, &ip);
-    let (public_keys, private_keys, agg_sig, my_sig, sig_vec) = simulator.init().await;
+    let (agg_sig, my_sig) = simulator.init(private_keys.clone(), public_keys.clone(), signatures.clone(), proposal.clone()).await;
 
-    let mut final_time = 0;
+    let mut final_time = Vec::new();
     for _ in 0..10 {
-        simulator.open_connections(&sig_vec).await;
+        simulator.open_connections(signatures.clone()).await;
         println!("Finished preparing Simulator");
 
         let mut depth_based_internal_aggregator_vec = Vec::new();
@@ -102,11 +105,11 @@ pub(crate) async fn main() {
             if i == 0 {
                 internal_leader_divider = leader_divider;
             }
-            depth_based_internal_aggregator_vec.push(DepthBasedInternalAggregator::new(m, i, additional_depth, &proposal, public_keys.clone(), internal_leader_divider, &ip, &private_keys, participation_modifier));
+            depth_based_internal_aggregator_vec.push(DepthBasedInternalAggregator::new(m, i, additional_depth, proposal.clone(), public_keys.clone(), internal_leader_divider, &ip, private_keys.clone(), participation_modifier));
         }
 
         // Set up validator connections.
-        let mut first_internal_aggregator = FirstInternalAggregator::new(m, additional_depth, &proposal, public_keys.clone(), &ip, &private_keys);
+        let mut first_internal_aggregator = FirstInternalAggregator::new(m, additional_depth, &proposal, public_keys.clone(), &ip, private_keys.clone());
         first_internal_aggregator.open_connections().await;
         for mut dep_based in depth_based_internal_aggregator_vec.iter_mut() {
             dep_based.open_connections().await;
@@ -115,7 +118,7 @@ pub(crate) async fn main() {
         let mut leaf_node = LeafNode::new(m, &proposal, public_keys.clone(), my_sig, agg_sig, &ip, participation_modifier);
         leaf_node.connect().await;
 
-        let mut leaf_aggregator = LeafAggregator::new(m, &proposal, public_keys.clone(), &ip, &private_keys);
+        let mut leaf_aggregator = LeafAggregator::new(m, &proposal, public_keys.clone(), &ip, private_keys.clone());
 
         leaf_aggregator.connect().await;
 
@@ -132,37 +135,21 @@ pub(crate) async fn main() {
         // Actually run the validator and measure time it took.
         let time_now = Instant::now();
         leaf_node.run().await;
-        network += 200;
         println!("Now 1: {}", time_now.elapsed().as_millis());
         leaf_aggregator.run().await;
-        network += 200;
         println!("Now 2: {}", time_now.elapsed().as_millis());
         first_internal_aggregator.run().await;
-        network += 200;
         println!("Now 3: {}", time_now.elapsed().as_millis());
         for mut dep_based in depth_based_internal_aggregator_vec.iter_mut() {
-            network += 200;
             dep_based.run().await;
             println!("Now 4x: {}", time_now.elapsed().as_millis());
         }
-        network -= 200;
 
         let time_final = time_now.elapsed().as_millis() + network;
 
-        final_time+=time_final;
+        final_time.push(time_final);
 
         println!("Time final: {}", time_final);
-
-        // ----- Types of Roles: -----
-        // Leaf node: Verifies initial proposal, signs it, and sends sig out (done)
-        // Leaf aggregator: Collect leaf votes, aggregate and broadcast (done)
-        // Internal aggregator: Collect aggregates from leaf aggregators, aggregate into 2 separate aggregate (largest & majority) and send up to next station (done)
-        // Leader aggregator. Collect aggregates from others and join 2 aggregates that we've gotten. (done)
-
-        // Leaf sends to 128 parents, one of them is real (simulator only has to create 127 now, we create a new validatortype for this that listens to the m input.)
-
-        //todo: Simulate average case
-        //todo: Make it work in docker with netem - actually 200ms
 
         // Give the program time to wrap up.
         sleep(Duration::from_secs(5));
@@ -175,6 +162,5 @@ pub(crate) async fn main() {
         }
     }
 
-    let result = final_time/10;
-    println!("Result final: {} for {:?}", result, env::args());
+    println!("Result final: {:?} for {:?}", final_time, env::args());
 }

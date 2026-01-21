@@ -32,7 +32,7 @@ pub struct DepthBasedInternalAggregator {
     // Connection to send message to parents.
     pub parent_channels: broadcast::Sender<(BitVec, Signature, BitVec, Signature)>,
     // Public keys of all nodes in the system.
-    pub public_keys: Arc<Vec<Arc<PublicKey>>>,
+    pub public_keys: Arc<Vec<PublicKey>>,
     // Channel to hand signatures that come from the children and process them.
     pub signature_receiver: Receiver<(usize, BitVec, Signature, PublicKey, BitVec, Signature, PublicKey)>,
     pub ip : String,
@@ -61,16 +61,16 @@ impl Default for DepthBasedInternalAggregator {
 
 impl DepthBasedInternalAggregator {
 
-    pub fn new(m: usize, depth: usize, total_depth: usize, proposal: &Vec<u8>, public_keys: Vec<Arc<PublicKey>>, leader_divider: usize, ip: &String, private_keys: &Vec<Arc<SecretKey>>, participation_modifier: usize) -> Self {
+    pub fn new(m: usize, depth: usize, total_depth: usize, proposal: Vec<u8>, public_keys: Arc<Vec<PublicKey>>, leader_divider: usize, ip: &String, private_keys: Arc<Vec<SecretKey>>, participation_modifier: usize) -> Self {
         DepthBasedInternalAggregator {
             depth,
             m,
             total_depth,
             leader_divider,
             proposal: Arc::new(proposal.clone()),
-            public_keys: Arc::new(public_keys),
+            public_keys,
             ip: ip.clone(),
-            private_key: private_keys.get(0).unwrap().clone(),
+            private_key: Arc::new(private_keys.get(0).unwrap().clone()),
             participation_modifier,
             ..Default::default()
         }
@@ -83,7 +83,7 @@ impl DepthBasedInternalAggregator {
 
         let expected_sigs = (self.m / 16).pow((self.total_depth - self.depth) as u32) * self.m;
         println!("Expected sigs: {} at {} at {}", expected_sigs, self.depth, base_port);
-        connect_to_child_nodes(self.ip.clone(), self.m, base_port, &self.proposal, &self.public_keys, &mut self.child_channels, signature_sender, expected_sigs, self.participation_modifier).await;
+        connect_to_child_nodes(format!("aggregator{}", self.depth), self.m, base_port, &self.proposal, self.public_keys.clone(), &mut self.child_channels, signature_sender, expected_sigs, self.participation_modifier).await;
         self.signature_receiver=signature_receiver;
 
         println!("Finished preparing internal aggregator connections");
@@ -97,10 +97,10 @@ impl DepthBasedInternalAggregator {
             let base_port = 40_000 + 2000 * (self.depth - 1);
             if self.depth == 1 {
                 // Only the leader.
-                setup_parent_connections(self.ip.clone(), base_port, 1, &mut self.parent_channels, &self.private_key).await;
+                setup_parent_connections(format!("aggregator{}", self.depth-1), base_port, 1, &mut self.parent_channels, &self.private_key).await;
             } else {
                 // Next higher up group.
-                setup_parent_connections(self.ip.clone(), base_port, 128, &mut self.parent_channels, &self.private_key).await;
+                setup_parent_connections(format!("aggregator{}", self.depth-1), base_port, 128, &mut self.parent_channels, &self.private_key).await;
             }
         }
     }
@@ -227,7 +227,7 @@ impl DepthBasedInternalAggregator {
 }
 
 // connect to m child nodes. So we assume they're al
-pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, proposal: &Arc<Vec<byte>>, public_keys: &Arc<Vec<Arc<PublicKey>>>, sender: &broadcast::Sender<()>, signature_sender: Sender<(usize, BitVec, Signature, PublicKey, BitVec, Signature, PublicKey)>, expected_sigs: usize, participation_modifier: usize) {
+pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, proposal: &Arc<Vec<byte>>, public_keys: Arc<Vec<PublicKey>>, sender: &broadcast::Sender<()>, signature_sender: Sender<(usize, BitVec, Signature, PublicKey, BitVec, Signature, PublicKey)>, expected_sigs: usize, participation_modifier: usize) {
 
     println!("Opening Port: {}", base_port);
 
@@ -331,7 +331,7 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
 
                                 for local_index in 0..bit_vec.len() {
                                     let index = start_index + local_index;
-                                    pubs.push(local_public_keys_copy.get(index).unwrap().as_ref());
+                                    pubs.push(local_public_keys_copy.get(index).unwrap());
                                 }
                                 let pub_key = AggregatePublicKey::aggregate(&pubs, false).unwrap();
                                 map.insert(group_id, pub_key);

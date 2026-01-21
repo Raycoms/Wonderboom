@@ -25,7 +25,7 @@ pub struct FirstInternalAggregator {
     // Connection to send message to parents.
     pub parent_channels: broadcast::Sender<(BitVec, Signature, BitVec, Signature)>,
     // Public keys of all nodes in the system.
-    pub public_keys: Arc<Vec<Arc<PublicKey>>>,
+    pub public_keys: Arc<Vec<PublicKey>>,
     // Channel to hand signatures that come from the children and process them.
     pub signature_receiver: Receiver<(usize,BitVec, Signature, PublicKey)>,
     pub ip : String,
@@ -50,14 +50,14 @@ impl Default for FirstInternalAggregator {
 
 impl FirstInternalAggregator {
 
-    pub fn new(m: usize, depth: usize, proposal: &Vec<u8>, public_keys: Vec<Arc<PublicKey>>, ip: &String, private_keys: &Vec<Arc<SecretKey>>) -> Self {
+    pub fn new(m: usize, depth: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, ip: &String, private_keys: Arc<Vec<SecretKey>>) -> Self {
         FirstInternalAggregator {
             m,
             depth,
             proposal: Arc::new(proposal.clone()),
-            public_keys: Arc::new(public_keys),
+            public_keys,
             ip: ip.clone(),
-            private_key: private_keys.get(0).unwrap().clone(),
+            private_key: Arc::new(private_keys.get(0).unwrap().clone()),
             ..Default::default()
         }
     }
@@ -65,7 +65,7 @@ impl FirstInternalAggregator {
     pub async fn open_connections(&mut self) {
 
         let (signature_sender, signature_receiver) = async_channel::bounded(self.m);
-        connect_to_child_nodes(self.ip.clone(), self.m, 30_000, &self.proposal, &self.public_keys, &mut self.child_channels, signature_sender).await;
+        connect_to_child_nodes(format!("leaf_aggregator"), self.m, 30_000, &self.proposal, self.public_keys.clone(), &mut self.child_channels, signature_sender).await;
         self.signature_receiver=signature_receiver;
 
         println!("Finished preparing internal aggregator connections");
@@ -75,7 +75,7 @@ impl FirstInternalAggregator {
     pub async fn connect(&mut self) {
         let base_port = 40_000 + (self.depth - 1) * 2000;
         // Currently just leader, in the future this has to be a setting.
-        setup_parent_connections(self.ip.clone(), base_port, 128, &mut self.parent_channels, &self.private_key).await;
+        setup_parent_connections(format!("aggregator{}",self.depth), base_port, 128, &mut self.parent_channels, &self.private_key).await;
     }
 
     // Run simulator by notifying all threads to send the message to the client.
@@ -182,7 +182,7 @@ impl FirstInternalAggregator {
 }
 
 // connect to m child nodes. So we assume they're al
-pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, proposal: &Arc<Vec<byte>>, public_keys: &Arc<Vec<Arc<PublicKey>>>, sender: &broadcast::Sender<()>, signature_sender: Sender<(usize, BitVec, Signature, PublicKey)>) {
+pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, proposal: &Arc<Vec<byte>>, public_keys: Arc<Vec<PublicKey>>, sender: &broadcast::Sender<()>, signature_sender: Sender<(usize, BitVec, Signature, PublicKey)>) {
 
     // Listen on base port for connection attempts.
     let port = base_port;
@@ -258,7 +258,7 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
                             for (local_index, available) in bit_vec.iter().enumerate() {
                                 if available {
                                     let index = start_index + local_index;
-                                    pubs.push(local_public_keys_copy.get(index).unwrap().as_ref());
+                                    pubs.push(local_public_keys_copy.get(index).unwrap());
                                 }
                             }
                             let pub_key = AggregatePublicKey::aggregate(&pubs, false).unwrap().to_public_key();

@@ -16,7 +16,7 @@ pub struct LeafNode {
     pub(crate) m: usize,
     // Proposal byte vector.
     pub proposal: Arc<Vec<byte>>,
-    pub public_keys: Arc<Vec<Arc<PublicKey>>>,
+    pub public_keys: Arc<Vec<PublicKey>>,
     pub my_sig: Signature,
     pub agg_sig: Signature,
     pub parent_channels: broadcast::Sender<Signature>,
@@ -27,7 +27,7 @@ pub struct LeafNode {
 
 impl LeafNode {
 
-    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Vec<Arc<PublicKey>>, my_sig: Signature, agg_sig: Signature, ip: &String, participation_modifier: usize) -> Self {
+    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, my_sig: Signature, agg_sig: Signature, ip: &String, participation_modifier: usize) -> Self {
         let mut rng = rand::thread_rng();
         let mut ikm = [0u8; 32];
         rng.fill_bytes(&mut ikm);
@@ -35,7 +35,7 @@ impl LeafNode {
         LeafNode {
             m,
             proposal: Arc::new(proposal.clone()),
-            public_keys: Arc::new(public_keys),
+            public_keys,
             my_sig,
             agg_sig,
             parent_channels: Sender::new(2),
@@ -49,7 +49,7 @@ impl LeafNode {
     pub async fn connect(&mut self) {
 
         // We set up connections for: parent nodes.
-        setup_parent_connections(self.ip.clone(), 10_000, self.m, &mut self.parent_channels).await;
+        setup_parent_connections(format!("leaf"), 10_000, self.m, &mut self.parent_channels).await;
         println!("Finished preparing leaf connections");
 
         for i in 0..4 {
@@ -58,7 +58,7 @@ impl LeafNode {
             let j = i.clone()*share;
             let mut pub_vec = Vec::new();
             for index in j..(j+share){
-                pub_vec.push(pubs_copy.get(index).unwrap().as_ref());
+                pub_vec.push(pubs_copy.get(index).unwrap());
             }
 
             self.pub_cache.push(AggregatePublicKey::aggregate(&pub_vec, false).unwrap());
@@ -121,8 +121,8 @@ impl LeafNode {
 }
 
 pub async fn setup_parent_connections(ip: String, base_port : usize, range: usize, sender: &mut Sender<Signature>) {
-    for i in 0..(range -1) {
-        let port = base_port + 1000 + i;
+    for i in 0..range {
+        let port = base_port + i;
         let addr = format!("{}:{}", ip, port);
         let listener = TcpListener::bind(&addr).await.unwrap();
 
@@ -144,25 +144,4 @@ pub async fn setup_parent_connections(ip: String, base_port : usize, range: usiz
             }
         });
     }
-
-    let addr = format!("{}:{}", ip, base_port);
-
-    let listener = TcpListener::bind(&addr).await.unwrap();
-    let mut rx = sender.subscribe();
-    RUN_POOL.spawn(async move {
-        // Spawn a task to accept connections on this listener
-
-        match listener.accept().await {
-            Ok((mut socket, addr)) => {
-                // Spawn a new task for each connection
-                if let Ok(sig) = rx.recv().await {
-                    socket.write(&sig.to_bytes()).await.unwrap();
-                }
-                drop(rx);
-            }
-            Err(e) => {
-                eprintln!("Failed to accept connection: {}", e);
-            }
-        }
-    });
 }

@@ -21,7 +21,7 @@ pub struct LeafAggregator {
     pub private_key: Arc<SecretKey>,
     pub leaf_channels: broadcast::Sender<()>,
     pub parent_channels: broadcast::Sender<(BitVec, Signature)>,
-    pub public_keys: Arc<Vec<Arc<PublicKey>>>,
+    pub public_keys: Arc<Vec<PublicKey>>,
     pub signature_map: Arc<DashMap<usize, Option<Signature>>>,
     pub ip: String,
 }
@@ -44,19 +44,19 @@ impl Default for LeafAggregator {
 
 impl LeafAggregator {
 
-    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Vec<Arc<PublicKey>>, ip: &String, private_keys: &Vec<Arc<SecretKey>>) -> Self {
+    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, ip: &String, private_keys: Arc<Vec<SecretKey>>) -> Self {
         let mut rng = rand::thread_rng();
         let mut ikm = [0u8; 32];
         rng.fill_bytes(&mut ikm);
 
-        let private_key = private_keys.get(0).unwrap().clone();
+        let private_key = Arc::new(private_keys.get(0).unwrap().clone());
 
         LeafAggregator {
             m,
             public_key: private_key.sk_to_pk(),
             private_key,
             proposal: Arc::new(proposal.clone()),
-            public_keys: Arc::new(public_keys),
+            public_keys,
             ip: ip.clone(),
             ..Default::default()
         }
@@ -71,7 +71,7 @@ impl LeafAggregator {
         let (mut signature_sender, mut signature_receiver) = async_channel::bounded(self.m);
 
         // Leaf nodes will send out messages to their parent
-        connect_to_leaf_nodes( self.ip.clone(), 10_000, self.m, signature_sender, &mut self.leaf_channels).await;
+        connect_to_leaf_nodes(format!("leaf"), 10_000, self.m, signature_sender, &mut self.leaf_channels).await;
         println!("Finished preparing Validator leaf connections");
 
         // So we could verify them all independently.
@@ -92,7 +92,7 @@ impl LeafAggregator {
             });
         }
 
-        setup_parent_connections(self.ip.clone(), 30_000, 128, &mut self.parent_channels, &self.private_key).await;
+        setup_parent_connections(format!("leaf_aggregator"), 30_000, 128, &mut self.parent_channels, &self.private_key).await;
     }
 
     // Run simulator by notifying all threads to send the message to the client.
@@ -155,7 +155,7 @@ impl LeafAggregator {
                             let mut pub_bit_vec = BitVec::from_elem(m, false);
 
                             for (idx, pub_key, sig) in sigs.iter() {
-                                pub_vec.push(pub_key.as_ref());
+                                pub_vec.push(pub_key);
                                 sig_vec.push(sig);
                                 pub_bit_vec.set(idx.clone(), true);
                             }

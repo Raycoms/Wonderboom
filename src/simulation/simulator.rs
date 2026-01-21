@@ -50,50 +50,10 @@ impl Simulator {
         }
     }
 
-    pub async fn init(&mut self) -> (Vec<Arc<PublicKey>>, Vec<Arc<SecretKey>>, Signature, Signature, Arc<Vec<Signature>>) {
+    pub async fn init(&mut self, private_keys: Arc<Vec<SecretKey>>, public_keys: Arc<Vec<PublicKey>>, signatures: Arc<Vec<Signature>>, proposal: Vec<u8>) -> (Signature, Signature) {
         // We set up connections for: Leaf nodes, siblings & parent nodes.
-        let mut pub_keys = Vec::new();
-        let mut priv_keys = Vec::new();
-
         println!("Starting Simulator with {} {}", self.N, self.m);
 
-        let (sender, mut receiver) = tokio::sync::mpsc::channel(self.N);
-        for _ in 0..8 {
-            let proposal_copy = self.proposal.clone();
-            let share = self.N/8;
-            let sender_clone = sender.clone();
-            PREPARE_POOL.spawn(async move {
-                println!("Starting task with share: {}", share);
-                for _ in 0..share {
-                    let mut ikm = [0u8; 32];
-                    {
-                        let mut rng = rand::thread_rng();
-                        rng.fill_bytes(&mut ikm);
-                    }
-                    let pvt_key = SecretKey::key_gen(&ikm, &[]).unwrap();
-                    let pub_key = pvt_key.sk_to_pk();
-                    sender_clone.send((pub_key, pvt_key.sign(&proposal_copy, DST, &[]), pvt_key)).await.unwrap();
-                }
-                drop(sender_clone);
-            });
-        }
-        drop(sender);
-
-        let mut sig_vec = Vec::new();
-        while let Some((pub_key, sig, pvt_key)) = receiver.recv().await {
-            pub_keys.push(Arc::new(pub_key));
-            priv_keys.push(Arc::new(pvt_key));
-            sig_vec.push(sig);
-            if sig_vec.len() % 100_000 == 0 {
-                println!("Got 100k Sigs, now at: {}", sig_vec.len());
-            }
-        }
-
-        self.priv_keys.append(&mut priv_keys);
-
-        let sig_vec = Arc::new(sig_vec);
-
-        println!("Finished Signatures, Starting Aggregation");
 
         // Map for agg per depth.
         let mut agg_map = HashMap::new();
@@ -106,8 +66,8 @@ impl Simulator {
             let mut curr_pub_ref_vec = Vec::new();
             let mut curr_sig_ref_vec = Vec::new();
             for _ in 0..self.m {
-                curr_pub_ref_vec.push(pub_keys[curr_index].as_ref());
-                curr_sig_ref_vec.push(&sig_vec[curr_index]);
+                curr_pub_ref_vec.push(&public_keys[curr_index]);
+                curr_sig_ref_vec.push(&signatures[curr_index]);
                 curr_index+=1;
             }
             let agg_pub = AggregatePublicKey::aggregate(&curr_pub_ref_vec, false).unwrap().to_public_key();
@@ -177,10 +137,10 @@ impl Simulator {
         self.consensus_data = Arc::new(agg_map);
 
         println!("Finished Aggregation, Opening Connections");
-        (Vec::from(pub_keys), self.priv_keys.clone(), agg_sig, sig_vec.get(0).unwrap().clone(), sig_vec)
+        (agg_sig, signatures.get(0).unwrap().clone())
     }
 
-    pub async fn open_connections(&mut self, sig_vec: &Arc<Vec<Signature>>) {
+    pub async fn open_connections(&mut self, sig_vec: Arc<Vec<Signature>>) {
 
         // Leaf nodes will send out messages to their parent
         setup_leaf_nodes(self, 10_000, self.m-1, sig_vec).await;
@@ -206,7 +166,7 @@ impl Simulator {
         // Send out the leaf votes.
         self.leaf_channels.send(()).unwrap();
 
-        setup_leaf_parent_connections(self,11_000, self.m - 1).await;
+        setup_leaf_parent_connections(self,10_000, self.m).await;
 
         setup_children_connections(&self,30_000, self.m).await;
 
@@ -235,11 +195,11 @@ pub async fn setup_leaf_nodes(
     simulator: &mut Simulator,
     base_port: usize,
     range: usize,
-    sigs: &Arc<Vec<Signature>>
+    sigs: Arc<Vec<Signature>>
 ) {
     for i in 1..(range+1) {
         let port = base_port + i;
-        let addr = format!("{}:{}", simulator.ip, port);
+        let addr = format!("{}:{}", "leaf_aggregator", port);
         let listener = TcpListener::bind(&addr).await.unwrap();
 
         let mut rx = simulator.leaf_channels.subscribe();
@@ -273,7 +233,7 @@ pub async fn setup_parent_connections(
     println!("Opening Ports: {} to {}", base_port + 1, base_port + range + 1);
     for i in 0..range {
         let port = base_port + i + 1;
-        let addr = format!("{}:{}", simulator.ip, port);
+        let addr = format!("{}:{}", "leaf_aggregator", port);
         let listener = TcpListener::bind(&addr).await.unwrap();
 
         let mut rx = simulator.parent_channels.subscribe();
@@ -302,7 +262,7 @@ pub async fn setup_children_connections(simulator: &Simulator, base_port: usize,
     // We have m-1 connections. Each of them sends a signature aggregate. 20 distinct ones. The first one we already did!
     for i in 1..range {
         let port = base_port;
-        let addr = format!("{}:{}", simulator.ip, port);
+        let addr = format!("{}:{}", "aggregator1", port);
         let mut stream = TcpStream::connect(&addr).await.unwrap();
 
         let data_copy = simulator.consensus_data.clone();
@@ -336,9 +296,9 @@ pub async fn setup_children_connections(simulator: &Simulator, base_port: usize,
 pub async fn setup_leaf_parent_connections(simulator: &Simulator, base_port: usize, range: usize) {
 
     // We have m-1 connections. Each of them sends a signature aggregate. 20 distinct ones. The first one we already did!
-    for i in 0..range {
+    for i in 1..range {
         let port = base_port + i;
-        let addr = format!("{}:{}", simulator.ip, port);
+        let addr = format!("{}:{}", "leaf", port);
         let mut stream = TcpStream::connect(&addr).await.unwrap();
         let mut rx = simulator.leaf_parent_channels.subscribe();
 
@@ -354,7 +314,7 @@ pub async fn setup_depth_children_connections(simulator: &Simulator, base_port: 
 
     for i in 1..(range+1) {
         let port = base_port;
-        let addr = format!("{}:{}", simulator.ip, port);
+        let addr = format!("{}:{}", format!("aggregator{}", depth) , port);
         let mut stream = TcpStream::connect(&addr).await.unwrap();
 
         let data_copy = simulator.consensus_data.clone();

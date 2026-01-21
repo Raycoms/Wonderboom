@@ -1,0 +1,206 @@
+Running Configuration: 256 Cores: 2 Participation Rate 6
+
+thread 'main' (14) panicked at src/simulation/leaf_aggregator.rs:212:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'run' (26) panicked at src/simulation/leaf_aggregator.rs:219:29:
+called `Result::unwrap()` on an `Err` value: Closed
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Running Configuration: 256 Cores: 2 Participation Rate 20
+
+thread 'main' (27) panicked at src/simulation/leaf_aggregator.rs:212:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'run' (39) panicked at src/simulation/leaf_aggregator.rs:219:29:
+called `Result::unwrap()` on an `Err` value: Closed
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Running Configuration: 256 Cores: 2 Participation Rate 200
+
+thread 'main' (41) panicked at src/simulation/leaf_aggregator.rs:212:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'run' (52) panicked at src/simulation/leaf_aggregator.rs:219:29:
+called `Result::unwrap()` on an `Err` value: Closed
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: Running Configuration: 256 Cores: 4 Participation Rate 6
+
+thread 'main' (54) panicked at src/simulation/leaf_aggregator.rs:212:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'run' (68) panicked at src/simulation/leaf_aggregator.rs:219:29:
+called `Result::unwrap()` on an `Err` value: Closed
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Running Configuration: 256 Cores: 4 Participation Rate 20
+
+thread 'main' (69) panicked at src/simulation/leaf_aggregator.rs:212:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'run' (81) panicked at src/simulation/leaf_aggregator.rs:219:29:
+called `Result::unwrap()` on an `Err` value: Closed
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Running Configuration: 256 Cores: 4 Participation Rate 200
+
+thread 'main' (84) panicked at src/simulation/leaf_aggregator.rs:212:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'run' (98) panicked at src/simulation/leaf_aggregator.rs:219:29:
+called `Result::unwrap()` on an `Err` value: Closed
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Running Configuration: 256 Cores: 6 Participation Rate 6
+
+thread 'main' (99) panicked at src/simulation/leaf_aggregator.rs:212:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'run' (115) panicked at src/simulation/leaf_aggregator.rs:219:29:
+called `Result::unwrap()` on an `Err` value: Closed
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.Running Configuration: 256 Cores: 6 Participation Rate 20
+
+thread 'main' (116) panicked at src/simulation/leaf_aggregator.rs:212:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'run' (129) panicked at src/simulation/leaf_aggregator.rs:219:29:
+called `Result::unwrap()` on an `Err` value: Closed
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Running Configuration: 256 Cores: 6 Participation Rate 200
+
+thread 'main' (134) panicked at src/simulation/leaf_aggregator.rs:212:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'run' (150) panicked at src/simulation/leaf_aggregator.rs:219:29:
+called `Result::unwrap()` on an `Err` value: Closed
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Running Configuration: 256 Cores: 8 Participation Rate 6
+
+thread 'main' (151) panicked at src/simulation/leaf_aggregator.rs:212:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'run' (167) panicked at src/simulation/leaf_aggregator.rs:219:29:
+called `Result::unwrap()` on an `Err` value: Closed
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.Running Configuration: 256 Cores: 8 Participation Rate 20
+
+thread 'main' (170) panicked at src/simulation/leaf_aggregator.rs:212:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'run' (188) panicked at src/simulation/leaf_aggregator.rs:219:29:
+called `Result::unwrap()` on an `Err` value: Closed
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.Running Configuration: 256 Cores: 8 Participation Rate 200
+
+thread 'main' (190) panicked at src/simulation/leaf_aggregator.rs:212:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'run' (205) panicked at src/simulation/leaf_aggregator.rs:219:29:
+called `Result::unwrap()` on an `Err` value: Closed
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: A Tokio 1.x context was found, but it is being shutdown.
+Failed to accept connection: Running Configuration: 256 Cores: 10 Participation Rate 6
