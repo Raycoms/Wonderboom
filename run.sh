@@ -14,12 +14,13 @@ echo "10.0.0.4  aggregator1" >> /etc/hosts
 echo "10.0.0.5  aggregator2" >> /etc/hosts
 echo "10.0.0.6  aggregator3" >> /etc/hosts
 
-tc qdisc add dev eth0 root netem delay 100ms rate 100mbit
+tc qdisc add dev eth0 root netem delay 100ms
+tc qdisc add dev lo root netem delay 100ms
 
 ulimit -n 100000
 
 configurations="256 272 288 304 320"
-cores="2 4 6 8 10 12 14 16"
+cores="2 4 6 8 10 12"
 participationrate="6 20 200"
 
 for x in $configurations; do

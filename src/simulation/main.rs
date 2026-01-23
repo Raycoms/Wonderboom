@@ -1,14 +1,17 @@
 #![allow(non_snake_case)]
 
 use std::env;
+use std::sync::Arc;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
+use futures::channel;
 use get_if_addrs::get_if_addrs;
 use hmac::Hmac;
 use once_cell::sync::Lazy;
 use rand_core::{OsRng, RngCore};
 use sha2::Sha256;
 use tokio::runtime::{Builder, Runtime};
+use tokio::sync::broadcast;
 use crate::simulation::crypto;
 use crate::simulation::depth_based_internal_aggregator::DepthBasedInternalAggregator;
 use crate::simulation::first_internal_aggregator::FirstInternalAggregator;
@@ -85,40 +88,40 @@ pub(crate) async fn main() {
     let ((private_keys, public_keys, signatures), proposal) = crypto::generate_or_load((m/16).pow( (additional_depth + 1) as u32) * m / leader_divider).await;
 
     // Set up simulator connections.
-
-    // Random 100KB block data (about realistic).
-    let mut proposal = vec![0u8; 100_000];
-    OsRng.fill_bytes(&mut proposal);
-
     let mut simulator = Simulator::new(m, additional_depth, &proposal, leader_divider, &ip);
-    let (agg_sig, my_sig) = simulator.init(private_keys.clone(), public_keys.clone(), signatures.clone(), proposal.clone()).await;
+    let (agg_sig, my_sig) = simulator.init(private_keys.clone(), public_keys.clone(), signatures.clone()).await;
 
     let mut final_time = Vec::new();
     for _ in 0..10 {
-        simulator.open_connections(signatures.clone()).await;
+        simulator.open_connections().await;
         println!("Finished preparing Simulator");
 
         let mut depth_based_internal_aggregator_vec = Vec::new();
 
+        let mut depth_channels: Vec<broadcast::Sender<()>> = Vec::new();
+
+        for i in 0..additional_depth+4 {
+            depth_channels.push(broadcast::channel(2).0);
+        }
+
         for i in (0..additional_depth).rev() {
-            let mut internal_leader_divider = 1;
-            if i == 0 {
-                internal_leader_divider = leader_divider;
-            }
-            depth_based_internal_aggregator_vec.push(DepthBasedInternalAggregator::new(m, i, additional_depth, proposal.clone(), public_keys.clone(), internal_leader_divider, &ip, private_keys.clone(), participation_modifier));
+            depth_based_internal_aggregator_vec.push(DepthBasedInternalAggregator::new(m, i, additional_depth, proposal.clone(), public_keys.clone(), &ip, private_keys.clone(), participation_modifier, depth_channels.get(i).unwrap().clone()));
         }
 
         // Set up validator connections.
-        let mut first_internal_aggregator = FirstInternalAggregator::new(m, additional_depth, &proposal, public_keys.clone(), &ip, private_keys.clone());
+        let mut first_internal_aggregator = FirstInternalAggregator::new(m, additional_depth, &proposal, public_keys.clone(), &ip, private_keys.clone(), depth_channels.get(additional_depth).unwrap().clone());
         first_internal_aggregator.open_connections().await;
         for mut dep_based in depth_based_internal_aggregator_vec.iter_mut() {
             dep_based.open_connections().await;
         }
 
-        let mut leaf_node = LeafNode::new(m, &proposal, public_keys.clone(), my_sig, agg_sig, &ip, participation_modifier);
-        leaf_node.connect().await;
+        let mut leaf_aggregator = LeafAggregator::new(m, &proposal, public_keys.clone(), &ip, private_keys.clone(), depth_channels.get(additional_depth+1).unwrap().clone());
+        leaf_aggregator.open_connections().await;
 
-        let mut leaf_aggregator = LeafAggregator::new(m, &proposal, public_keys.clone(), &ip, private_keys.clone());
+        simulator.connect().await;
+
+        let mut leaf_node = LeafNode::new(m, &proposal, public_keys.clone(), my_sig, agg_sig, &ip, participation_modifier, depth_channels.get(additional_depth+2).unwrap().clone());
+        leaf_node.connect().await;
 
         leaf_aggregator.connect().await;
 
@@ -128,9 +131,8 @@ pub(crate) async fn main() {
         }
 
         // Send out network messages of simulator for the validator to process.
-        simulator.run().await;
+        simulator.run(depth_channels.clone(), signatures.clone()).await;
         println!("Started up Simulator");
-        let mut network = 0;
 
         // Actually run the validator and measure time it took.
         let time_now = Instant::now();
@@ -145,7 +147,7 @@ pub(crate) async fn main() {
             println!("Now 4x: {}", time_now.elapsed().as_millis());
         }
 
-        let time_final = time_now.elapsed().as_millis() + network;
+        let time_final = time_now.elapsed().as_millis();
 
         final_time.push(time_final);
 
@@ -160,6 +162,7 @@ pub(crate) async fn main() {
         for mut dep_based in depth_based_internal_aggregator_vec.iter_mut() {
             dep_based.kill().await;
         }
+        sleep(Duration::from_secs(30));
     }
 
     println!("Result final: {:?} for {:?}", final_time, env::args());

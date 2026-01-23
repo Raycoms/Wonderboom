@@ -11,6 +11,7 @@ use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey,
 use dashmap::DashMap;
 use hmac::Mac;
 use rand::{thread_rng, Rng};
+use rayon::broadcast;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast};
@@ -25,8 +26,6 @@ pub struct DepthBasedInternalAggregator {
     pub depth: usize,
     // Total depth.
     pub total_depth: usize,
-    // Smaller fanout at leader
-    pub leader_divider: usize,
     // Channels to wake up children connection to start reading messages.
     pub child_channels: broadcast::Sender<()>,
     // Connection to send message to parents.
@@ -38,6 +37,7 @@ pub struct DepthBasedInternalAggregator {
     pub ip : String,
     pub private_key: Arc<SecretKey>,
     pub participation_modifier: usize,
+    pub depth_channel: broadcast::Sender<()>,
 }
 
 impl Default for DepthBasedInternalAggregator {
@@ -46,7 +46,6 @@ impl Default for DepthBasedInternalAggregator {
             depth: 0,
             m: 0,
             total_depth: 0,
-            leader_divider: 0,
             proposal: Arc::new(Vec::new()),
             child_channels: broadcast::Sender::new(2),
             parent_channels: broadcast::Sender::new(2),
@@ -54,24 +53,25 @@ impl Default for DepthBasedInternalAggregator {
             signature_receiver: async_channel::unbounded().1,
             ip: "127.0.0.1".to_string(),
             private_key: Arc::new(SecretKey::default()),
-            participation_modifier: 6
+            participation_modifier: 6,
+            depth_channel: broadcast::Sender::new(2),
         }
     }
 }
 
 impl DepthBasedInternalAggregator {
 
-    pub fn new(m: usize, depth: usize, total_depth: usize, proposal: Vec<u8>, public_keys: Arc<Vec<PublicKey>>, leader_divider: usize, ip: &String, private_keys: Arc<Vec<SecretKey>>, participation_modifier: usize) -> Self {
+    pub fn new(m: usize, depth: usize, total_depth: usize, proposal: Vec<u8>, public_keys: Arc<Vec<PublicKey>>, ip: &String, private_keys: Arc<Vec<SecretKey>>, participation_modifier: usize, depth_channel: broadcast::Sender<()>) -> Self {
         DepthBasedInternalAggregator {
             depth,
             m,
             total_depth,
-            leader_divider,
             proposal: Arc::new(proposal.clone()),
             public_keys,
             ip: ip.clone(),
             private_key: Arc::new(private_keys.get(0).unwrap().clone()),
             participation_modifier,
+            depth_channel,
             ..Default::default()
         }
     }
@@ -97,10 +97,10 @@ impl DepthBasedInternalAggregator {
             let base_port = 40_000 + 2000 * (self.depth - 1);
             if self.depth == 1 {
                 // Only the leader.
-                setup_parent_connections(format!("aggregator{}", self.depth-1), base_port, 1, &mut self.parent_channels, &self.private_key).await;
+                setup_parent_connections(format!("aggregator{}", self.depth-1), base_port, 1, &mut self.parent_channels, &self.private_key, self.depth_channel.clone()).await;
             } else {
                 // Next higher up group.
-                setup_parent_connections(format!("aggregator{}", self.depth-1), base_port, 128, &mut self.parent_channels, &self.private_key).await;
+                setup_parent_connections(format!("aggregator{}", self.depth-1), base_port, 128, &mut self.parent_channels, &self.private_key, self.depth_channel.clone()).await;
             }
         }
     }
@@ -113,7 +113,7 @@ impl DepthBasedInternalAggregator {
 
         println!("Finished preparing Validator sibling connections");
 
-        let m_copy = self.m.clone() / self.leader_divider.clone();
+        let m_copy = self.m.clone();
 
         let mut biggest_result_map: BTreeMap<usize, (BitVec, Signature, PublicKey, u64)> = BTreeMap::new();
 
@@ -234,6 +234,7 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
     // Listen on base port for connection attempts.
     let port = base_port;
     let addr = format!("{}:{}", ip, port);
+    println!("Setup to {}", addr);
     let listener = TcpListener::bind(&addr).await.unwrap();
     let mut local_sender = sender.clone();
 
@@ -405,37 +406,47 @@ pub fn invert_pub(pk: &PublicKey) -> PublicKey {
     PublicKey::from(neg_affine)
 }
 
-pub async fn setup_parent_connections(ip: String, base_port : usize, range: usize, sender: &mut broadcast::Sender<(BitVec, Signature, BitVec, Signature)>, private_key: &Arc<SecretKey>) {
-    for i in 0..range {
-        let port = base_port + i;
-        let addr = format!("{}:{}", ip, port);
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
+pub async fn setup_parent_connections(ip: String, base_port : usize, range: usize, sender: &mut broadcast::Sender<(BitVec, Signature, BitVec, Signature)>, private_key: &Arc<SecretKey>, depth_channel: broadcast::Sender<()>) {
+    let mut rx = sender.clone();
+    let private_key = private_key.clone();
+    let channel = depth_channel.clone();
+    RUN_POOL.spawn(async move {
+        for i in 0..range {
+            let port = base_port + i;
+            let addr = format!("{}:{}", ip, port);
+            let mut stream = TcpStream::connect(&addr).await.unwrap();
 
-        // Spawn a task to accept connections on this listener
-        let mut rx = sender.subscribe();
-        let private_key = private_key.clone();
+            // Spawn a task to accept connections on this listener
+            let mut rx = rx.subscribe();
+            let private_key = private_key.clone();
+            let i_clone = i.clone();
+            let channel = channel.clone();
 
-        RUN_POOL.spawn(async move {
-            // Connect to parent for sending.
-            // Just send a single message and disconnect.
-            if let Ok((bit_vec, agg_sig, bit_vec2, agg_sig2)) = rx.recv().await {
-                let mut msg_bytes = agg_sig.to_bytes().to_vec();
-                msg_bytes.append(&mut bit_vec.to_bytes().to_vec());
-                msg_bytes.append(&mut agg_sig2.to_bytes().to_vec());
-                msg_bytes.append(&mut bit_vec2.to_bytes().to_vec());
+            RUN_POOL.spawn(async move {
+                // Connect to parent for sending.
+                // Just send a single message and disconnect.
+                if let Ok((bit_vec, agg_sig, bit_vec2, agg_sig2)) = rx.recv().await {
+                    if i_clone == 0 {
+                        channel.send(()).unwrap();
+                    }
+                    let mut msg_bytes = agg_sig.to_bytes().to_vec();
+                    msg_bytes.append(&mut bit_vec.to_bytes().to_vec());
+                    msg_bytes.append(&mut agg_sig2.to_bytes().to_vec());
+                    msg_bytes.append(&mut bit_vec2.to_bytes().to_vec());
 
-                let personal_sig = private_key.sign(&msg_bytes, DST, &[]);
+                    let personal_sig = private_key.sign(&msg_bytes, DST, &[]);
 
-                println!("send to: {} {} {}", i.clone(), port.clone(), bit_vec.len());
+                    println!("send to: {} {} {}", i.clone(), port.clone(), bit_vec.len());
 
-                let index : usize = 0;
-                stream.write(&index.to_be_bytes()).await.unwrap();
-                stream.write(&bit_vec.to_bytes()).await.unwrap();
-                stream.write(&agg_sig.to_bytes()).await.unwrap();
-                stream.write(&bit_vec2.to_bytes()).await.unwrap();
-                stream.write(&agg_sig2.to_bytes()).await.unwrap();
-                stream.write(&personal_sig.to_bytes()).await.unwrap();
-            }
-        });
-    }
+                    let index: usize = 0;
+                    stream.write(&index.to_be_bytes()).await.unwrap();
+                    stream.write(&bit_vec.to_bytes()).await.unwrap();
+                    stream.write(&agg_sig.to_bytes()).await.unwrap();
+                    stream.write(&bit_vec2.to_bytes()).await.unwrap();
+                    stream.write(&agg_sig2.to_bytes()).await.unwrap();
+                    stream.write(&personal_sig.to_bytes()).await.unwrap();
+                }
+            });
+        }
+    });
 }

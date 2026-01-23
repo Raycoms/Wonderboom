@@ -6,11 +6,13 @@ use blst::{byte};
 use blst::BLST_ERROR::BLST_SUCCESS;
 use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey, Signature};
 use dashmap::{DashMap};
+use futures::SinkExt;
 use rand_core::RngCore;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::simulation::main::{DST, RUN_POOL};
-use tokio::net::{TcpStream};
+use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast::Sender;
 
 pub struct LeafAggregator {
     // Fanout.
@@ -24,6 +26,7 @@ pub struct LeafAggregator {
     pub public_keys: Arc<Vec<PublicKey>>,
     pub signature_map: Arc<DashMap<usize, Option<Signature>>>,
     pub ip: String,
+    pub depth_channel: broadcast::Sender<()>,
 }
 
 impl Default for LeafAggregator {
@@ -37,6 +40,7 @@ impl Default for LeafAggregator {
             parent_channels: broadcast::Sender::new(2),
             public_keys: Arc::new(Vec::new()),
             signature_map: Arc::new(DashMap::new()),
+            depth_channel: broadcast::Sender::new(2),
             ip: "127.0.0.1".to_string(),
         }
     }
@@ -44,7 +48,7 @@ impl Default for LeafAggregator {
 
 impl LeafAggregator {
 
-    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, ip: &String, private_keys: Arc<Vec<SecretKey>>) -> Self {
+    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, ip: &String, private_keys: Arc<Vec<SecretKey>>, depth_channel: broadcast::Sender<()>) -> Self {
         let mut rng = rand::thread_rng();
         let mut ikm = [0u8; 32];
         rng.fill_bytes(&mut ikm);
@@ -58,6 +62,7 @@ impl LeafAggregator {
             proposal: Arc::new(proposal.clone()),
             public_keys,
             ip: ip.clone(),
+            depth_channel,
             ..Default::default()
         }
     }
@@ -65,13 +70,18 @@ impl LeafAggregator {
     // Prepare simulator. Open all necessary sockets and initiate signatures and public keys.
     pub async fn connect(&mut self) {
 
+        setup_parent_connections(&mut self.parent_channels, &self.private_key, self.depth_channel.clone()).await;
+    }
+
+    pub async fn open_connections(&mut self) {
+
         // We set up connections for: Leaf nodes, siblings & parent nodes.
 
         // Signature processing channel. todo move to constructor, those need to stay alive.
         let (mut signature_sender, mut signature_receiver) = async_channel::bounded(self.m);
 
         // Leaf nodes will send out messages to their parent
-        connect_to_leaf_nodes(format!("leaf"), 10_000, self.m, signature_sender, &mut self.leaf_channels).await;
+        connect_to_leaf_nodes(10_000, self.m, signature_sender, &mut self.leaf_channels).await;
         println!("Finished preparing Validator leaf connections");
 
         // So we could verify them all independently.
@@ -91,8 +101,6 @@ impl LeafAggregator {
                 }
             });
         }
-
-        setup_parent_connections(format!("leaf_aggregator"), 30_000, 128, &mut self.parent_channels, &self.private_key).await;
     }
 
     // Run simulator by notifying all threads to send the message to the client.
@@ -202,49 +210,73 @@ impl LeafAggregator {
     }
 }
 
-pub async fn connect_to_leaf_nodes(ip: String, base_port : usize, range: usize, signature_sender: async_channel::Sender<(usize, Signature)>, sender: &mut broadcast:: Sender<()>) {
-    for i in 0..range {
-        let port = base_port + i;
-        let addr = format!("{}:{}", ip, port);
+pub async fn connect_to_leaf_nodes(base_port : usize, range: usize, signature_sender: async_channel::Sender<(usize, Signature)>, sender: &mut broadcast:: Sender<()>) {
+    let addr = format!("{}:{}", format!("leaf_aggregator"), base_port);
+    let listener = TcpListener::bind(&addr).await.unwrap();
+    let tx_clone1 = signature_sender.clone();
+    let mut rx1 = sender.clone();
 
-        let mut rx = sender.subscribe();
+    RUN_POOL.spawn(async move {
+        for i in 0..range {
+            // Spawn a task to accept connections on this listener
+            let mut rx = rx1.subscribe();
 
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
+            let tx_clone = tx_clone1.clone();
 
-        // Spawn a task to accept connections on this listener
-        let tx_clone = signature_sender.clone();
-        RUN_POOL.spawn(async move {
+                match listener.accept().await {
 
-            // Wait to start reading messages.
-            rx.recv().await.unwrap();
+                    Ok((mut socket, addr)) => {
+                        RUN_POOL.spawn(async move {
+                        // Spawn a new task for each connection
+                        // Wait to start reading messages.
+                        rx.recv().await.unwrap();
 
-            // We're just expecting a single message from each leaf node.
-            let mut buffer = [0; 96];
-            stream.read_exact(&mut buffer).await.unwrap();
-            if let Ok(sig) = Signature::from_bytes(&buffer) {
-                tx_clone.send((i.clone(), sig)).await.unwrap();
-            } else {
-                eprintln!("Invalid signature bytes");
-            }
-        });
-    }
+                        // We're just expecting a single message from each leaf node.
+                        let mut id_buffer = [0; size_of::<usize>()];
+                        socket.read_exact(&mut id_buffer).await.unwrap();
+                        let id = usize::from_be_bytes(id_buffer);
+                            
+                        let mut buffer = [0; 96];
+                        socket.read_exact(&mut buffer).await.unwrap();
+                        if let Ok(sig) = Signature::from_bytes(&buffer) {
+                            tx_clone.send((id.clone(), sig)).await.unwrap();
+                        } else {
+                            eprintln!("Invalid signature bytes");
+                        }
+                        });
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to accept connection: {}", e);
+                    }
+
+                }
+
+        }
+    });
 }
 
-pub async fn setup_parent_connections(ip: String, base_port : usize, range: usize, sender: &mut broadcast::Sender<(BitVec, Signature)>, private_key: &Arc<SecretKey>) {
-    for i in 0..range {
-        let port = base_port + i;
-        let addr = format!("{}:{}", ip, port);
+pub async fn setup_parent_connections(sender: &mut broadcast::Sender<(BitVec, Signature)>, private_key: &Arc<SecretKey>, depth_channel: broadcast::Sender<()>) {
+    for i in 0..128 {
+        let port = 30_000 + i;
+        let addr = format!("{}:{}", format!("aggregator2"), port);
         let mut stream = TcpStream::connect(&addr).await.unwrap();
 
         // Spawn a task to accept connections on this listener
         let mut rx = sender.subscribe();
         let private_key = private_key.clone();
+        
+        let i_clone = i.clone();
+        let depth_channel = depth_channel.clone();
 
         RUN_POOL.spawn(async move {
 
             // Connect to parent for sending.
             // Just send a single message and disconnect.
             if let Ok((bit_vec, agg_sig)) = rx.recv().await {
+                
+                if i_clone == 0 {
+                    depth_channel.send(()).unwrap();
+                }
 
                 let mut msg_bytes = agg_sig.to_bytes().to_vec();
                 msg_bytes.append(&mut bit_vec.to_bytes().to_vec());

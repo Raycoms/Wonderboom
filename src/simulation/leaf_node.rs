@@ -7,7 +7,7 @@ use blst::min_pk::{AggregatePublicKey, PublicKey, Signature};
 use rand_core::RngCore;
 use tokio::io::{AsyncWriteExt};
 use crate::simulation::main::{DST, RUN_POOL};
-use tokio::net::{TcpListener};
+use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::Sender;
 
@@ -22,12 +22,13 @@ pub struct LeafNode {
     pub parent_channels: broadcast::Sender<Signature>,
     pub pub_cache: Vec<AggregatePublicKey>,
     pub ip: String,
-    pub participation_modifier: usize
+    pub participation_modifier: usize,
+    pub depth_channel: broadcast::Sender<()>,
 }
 
 impl LeafNode {
 
-    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, my_sig: Signature, agg_sig: Signature, ip: &String, participation_modifier: usize) -> Self {
+    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, my_sig: Signature, agg_sig: Signature, ip: &String, participation_modifier: usize, depth_channel: broadcast::Sender<()>) -> Self {
         let mut rng = rand::thread_rng();
         let mut ikm = [0u8; 32];
         rng.fill_bytes(&mut ikm);
@@ -41,6 +42,7 @@ impl LeafNode {
             parent_channels: Sender::new(2),
             pub_cache: Vec::new(),
             ip: ip.clone(),
+            depth_channel,
             participation_modifier
         }
     }
@@ -49,7 +51,7 @@ impl LeafNode {
     pub async fn connect(&mut self) {
 
         // We set up connections for: parent nodes.
-        setup_parent_connections(format!("leaf"), 10_000, self.m, &mut self.parent_channels).await;
+        setup_parent_connections( 128, &mut self.parent_channels, self.depth_channel.clone()).await;
         println!("Finished preparing leaf connections");
 
         for i in 0..4 {
@@ -120,27 +122,30 @@ impl LeafNode {
 
 }
 
-pub async fn setup_parent_connections(ip: String, base_port : usize, range: usize, sender: &mut Sender<Signature>) {
+pub async fn setup_parent_connections(range: usize, sender: &mut Sender<Signature>, depth_channel: broadcast::Sender<()>) {
     for i in 0..range {
-        let port = base_port + i;
-        let addr = format!("{}:{}", ip, port);
-        let listener = TcpListener::bind(&addr).await.unwrap();
+        let port = 10_000 + i;
+        let addr = format!("{}:{}", format!("leaf_aggregator"), port);
+        let mut stream = TcpStream::connect(&addr).await.unwrap();
 
         // Spawn a task to accept connections on this listener
         let mut rx2 = sender.subscribe();
+        let i_clone = i.clone();
+        let rx = depth_channel.clone();
 
         RUN_POOL.spawn(async move {
-            match listener.accept().await {
-                Ok((mut socket, addr)) => {
-                    // Spawn a new task for each connection
-                    if let Ok(sig) = rx2.recv().await {
-                        socket.write(&sig.to_bytes()).await.unwrap();
-                    }
-                    drop(rx2);
+
+            // Spawn a new task for each connection
+            if let Ok(sig) = rx2.recv().await {
+
+                if i_clone == 0 {
+                    rx.send(()).unwrap();
                 }
-                Err(e) => {
-                    eprintln!("Failed to accept connection: {}", e);
-                }
+
+                let index : usize = 0;
+                stream.write(&index.to_be_bytes()).await.unwrap();
+
+                stream.write(&sig.to_bytes()).await.unwrap();
             }
         });
     }

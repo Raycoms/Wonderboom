@@ -12,6 +12,7 @@ use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
+use tokio::sync::broadcast::Sender;
 
 pub struct Simulator {
     // Fanout.
@@ -28,7 +29,7 @@ pub struct Simulator {
     pub parent_channels: broadcast::Sender<()>,
     pub leaf_parent_channels: broadcast::Sender<()>,
     pub consensus_data: Arc<HashMap<usize, Vec<(PublicKey, Signature, BitVec)>>>,
-    pub priv_keys: Vec<Arc<SecretKey>>,
+    pub priv_keys: Arc<Vec<SecretKey>>,
     pub ip : String,
 }
 
@@ -44,15 +45,17 @@ impl Simulator {
             leaf_channels: broadcast::channel(2).0,
             parent_channels: broadcast::channel(2).0,
             leaf_parent_channels: broadcast::channel(2).0,
-            priv_keys: Vec::new(),
+            priv_keys: Arc::new(Vec::new()),
             consensus_data: Arc::new(HashMap::new()),
-            ip: ip.clone(),
+            ip: ip.clone()
         }
     }
 
-    pub async fn init(&mut self, private_keys: Arc<Vec<SecretKey>>, public_keys: Arc<Vec<PublicKey>>, signatures: Arc<Vec<Signature>>, proposal: Vec<u8>) -> (Signature, Signature) {
+    pub async fn init(&mut self, private_keys: Arc<Vec<SecretKey>>, public_keys: Arc<Vec<PublicKey>>, signatures: Arc<Vec<Signature>>) -> (Signature, Signature) {
         // We set up connections for: Leaf nodes, siblings & parent nodes.
         println!("Starting Simulator with {} {}", self.N, self.m);
+
+        self.priv_keys = private_keys.clone();
 
 
         // Map for agg per depth.
@@ -140,18 +143,14 @@ impl Simulator {
         (agg_sig, signatures.get(0).unwrap().clone())
     }
 
-    pub async fn open_connections(&mut self, sig_vec: Arc<Vec<Signature>>) {
+    pub async fn open_connections(&mut self) {
 
-        // Leaf nodes will send out messages to their parent
-        setup_leaf_nodes(self, 10_000, self.m-1, sig_vec).await;
-        println!("Finished preparing Simulator leaf connections");
-
-        setup_parent_connections(self, 30_000, 127).await;
+        setup_parent_connections(self, format!("leaf_aggregator"), 10_000, 128).await;
         println!("Finished preparing Simulator parent connections");
 
         for i in 1..self.depth {
             let base_port = 40_000 + 2000 * i;
-            setup_parent_connections(self,base_port, 127).await;
+            setup_parent_connections(self, format!("aggregator{}", i), base_port, 128).await;
         }
 
         println!("Finished Connections, sleeping for a sec");
@@ -161,24 +160,30 @@ impl Simulator {
         sleep(Duration::from_secs(1));
     }
 
+    pub async fn connect(&mut self) {
+
+        setup_leaf_parent_connections(&self).await;
+
+        println!("Finished preparing Simulator leaf connections");
+
+    }
+
     // Run simulator by notifying all threads to send the message to the client.
-    pub async fn run(&mut self) {
-        // Send out the leaf votes.
-        self.leaf_channels.send(()).unwrap();
+    pub async fn run(&mut self, depth_channels: Vec<Sender<()>>, sig_vec: Arc<Vec<Signature>>) {
 
-        setup_leaf_parent_connections(self,10_000, self.m).await;
+        // Leaf nodes will send out messages to their parent
+        setup_leaf_nodes(self, 10_000, self.m, sig_vec, depth_channels.get(self.depth+2).unwrap().clone()).await;
 
-        setup_children_connections(&self,30_000, self.m).await;
+        setup_children_connections(&self, depth_channels.get(self.depth+1).unwrap().clone()).await;
 
         for i in 0..self.depth {
             let base_port = 40_000 + 2000 * i;
-            if i == 0 {
-                setup_depth_children_connections(&self, base_port, self.m/self.leader_divider - 1, i, self.leader_divider).await;
-            }
-            else {
-                setup_depth_children_connections(&self, base_port, self.m - 1, i, 1).await;
-            }
+            setup_depth_children_connections(&self, base_port, self.m - 1, i, depth_channels.get(i+1).unwrap().clone()).await;
         }
+
+        // Send out the leaf votes.
+        self.leaf_channels.send(()).unwrap();
+
         println!("Finished connecting children to parent");
     }
 
@@ -191,54 +196,132 @@ impl Simulator {
     }
 }
 
+// Send m proposals to leaf aggregator.
 pub async fn setup_leaf_nodes(
     simulator: &mut Simulator,
     base_port: usize,
     range: usize,
-    sigs: Arc<Vec<Signature>>
+    sigs: Arc<Vec<Signature>>,
+    depth_channel: broadcast::Sender<()>
 ) {
-    for i in 1..(range+1) {
-        let port = base_port + i;
-        let addr = format!("{}:{}", "leaf_aggregator", port);
-        let listener = TcpListener::bind(&addr).await.unwrap();
+    for i in 1..range {
+        let addr = format!("{}:{}", "leaf_aggregator", base_port);
 
         let mut rx = simulator.leaf_channels.subscribe();
 
         let clone = sigs.clone();
+
+        let depth_channel = depth_channel.clone();
+
         // Spawn a task to accept connections on this listener
         PREPARE_POOL.spawn(async move {
-            // We atm only need a single connection per port here (saves us from having a lot of async tasks doing nothing).
-            match listener.accept().await {
-                Ok((mut socket, addr)) => {
-                    // Spawn a new task for each connection
-                    rx.recv().await.unwrap();
-                    socket.write(&clone[i].to_bytes()).await.unwrap();
+            let mut stream = TcpStream::connect(&addr).await.unwrap();
+            let mut depth_channel = depth_channel.subscribe();
 
-                    // Await second channel to close connection.
-                    rx.recv().await.unwrap();
-                }
-                Err(e) => {
-                    eprintln!("Failed to accept connection: {}", e);
-                }
-            }
+            // Spawn a new task for each connection
+            rx.recv().await.unwrap();
+
+            depth_channel.recv().await.unwrap();
+
+            stream.write(&i.to_be_bytes()).await.unwrap();
+
+            stream.write(&clone[i].to_bytes()).await.unwrap();
+
+            // Await second channel to close connection.
+            rx.recv().await.unwrap();
+
         });
     }
 }
 
 pub async fn setup_parent_connections(
     simulator: &mut Simulator,
+    ip: String,
     base_port: usize,
     range: usize,
 ) {
-    println!("Opening Ports: {} to {}", base_port + 1, base_port + range + 1);
-    for i in 0..range {
-        let port = base_port + i + 1;
-        let addr = format!("{}:{}", "leaf_aggregator", port);
+    let mut rx = simulator.parent_channels.clone();
+    println!("Opening Ports: {} to {} for {}", base_port + 1, base_port + range, ip);
+    PREPARE_POOL.spawn(async move {
+        for i in 1..range {
+            let port = base_port + i;
+            let addr = format!("{}:{}", ip, port);
+            let listener = TcpListener::bind(&addr).await.unwrap();
+
+            let mut rx = rx.subscribe();
+
+            // Spawn a task to accept connections on this listener
+            PREPARE_POOL.spawn(async move {
+                let listener = listener;
+
+                // We atm only need a single connection per port here (saves us from having a lot of thread doing nothing).
+                match listener.accept().await {
+                    Ok((socket, addr)) => {
+                        // Wait before closing connection.
+                        rx.recv().await.unwrap();
+                        drop(listener);
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to accept connection: {}", e);
+                    }
+                }
+            });
+        }
+    });
+}
+
+/// These are the child processes of the first internal aggregator.
+pub async fn setup_children_connections(simulator: &Simulator, depth_channel: Sender<()>) {
+
+    // We have m-1 connections. Each of them sends a signature aggregate. 20 distinct ones. The first one we already did!
+    for i in 1..simulator.m {
+        let data_copy = simulator.consensus_data.clone();
+        let priv_keys = simulator.priv_keys.clone();
+        let mut rx = depth_channel.subscribe();
+        PREPARE_POOL.spawn(async move {
+            let addr = format!("{}:{}", "aggregator2", 30_000);
+            let mut stream = TcpStream::connect(&addr).await.unwrap();
+
+            let local_idx = i / 16;
+            let priv_key = priv_keys.get(local_idx).unwrap().clone();
+
+            let copy = data_copy.get(&0).unwrap();
+            let sub_copy = copy.get(local_idx);
+
+            if sub_copy.is_none() {
+                panic!("Couldn't find signature for child connection {}", i);
+            }
+
+            let (pub_key, agg_sig, bit_vec) = sub_copy.unwrap();
+
+            let mut msg_bytes = agg_sig.to_bytes().to_vec();
+            msg_bytes.append(&mut bit_vec.to_bytes().to_vec());
+
+            let personal_sig = priv_key.sign(&msg_bytes, DST, &[]);
+
+            rx.recv().await.unwrap();
+
+            stream.write(&local_idx.to_be_bytes()).await.unwrap();
+
+            stream.write(&bit_vec.to_bytes()).await.unwrap();
+            stream.write(&agg_sig.to_bytes()).await.unwrap();
+            stream.write(&personal_sig.to_bytes()).await.unwrap();
+        });
+    }
+}
+
+// Will get 127 connections from leaf aggregator.
+pub async fn setup_leaf_parent_connections(simulator: &Simulator) {
+
+    let mut rx = simulator.leaf_parent_channels.clone();
+    PREPARE_POOL.spawn(async move {
+    // We have m-1 connections. Each of them sends a signature aggregate. 20 distinct ones. The first one we already did!
+    for i in 1..128 {
+        let port = 30_000 + i;
+        let addr = format!("{}:{}", "aggregator2", port);
+        let mut rx = rx.subscribe();
         let listener = TcpListener::bind(&addr).await.unwrap();
 
-        let mut rx = simulator.parent_channels.subscribe();
-
-        // Spawn a task to accept connections on this listener
         PREPARE_POOL.spawn(async move {
             let listener = listener;
 
@@ -254,61 +337,10 @@ pub async fn setup_parent_connections(
             }
         });
     }
+    });
 }
 
-/// These are the child processes of the first internal aggregator.
-pub async fn setup_children_connections(simulator: &Simulator, base_port: usize, range: usize) {
-
-    // We have m-1 connections. Each of them sends a signature aggregate. 20 distinct ones. The first one we already did!
-    for i in 1..range {
-        let port = base_port;
-        let addr = format!("{}:{}", "aggregator1", port);
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
-
-        let data_copy = simulator.consensus_data.clone();
-        let local_idx = i/16;
-        let priv_key = simulator.priv_keys.get(local_idx).unwrap().clone();
-
-        PREPARE_POOL.spawn(async move {
-            let copy = data_copy.get(&0).unwrap();
-            let sub_copy = copy.get(local_idx);
-
-            if sub_copy.is_none() {
-                panic!("Couldn't find signature for child connection {}", i);
-            }
-
-            let (pub_key, agg_sig, bit_vec) = sub_copy.unwrap();
-
-            let mut msg_bytes = agg_sig.to_bytes().to_vec();
-            msg_bytes.append(&mut bit_vec.to_bytes().to_vec());
-
-            let personal_sig = priv_key.sign(&msg_bytes, DST, &[]);
-
-            stream.write(&local_idx.to_be_bytes()).await.unwrap();
-
-            stream.write(&bit_vec.to_bytes()).await.unwrap();
-            stream.write(&agg_sig.to_bytes()).await.unwrap();
-            stream.write(&personal_sig.to_bytes()).await.unwrap();
-        });
-    }
-}
-
-pub async fn setup_leaf_parent_connections(simulator: &Simulator, base_port: usize, range: usize) {
-
-    // We have m-1 connections. Each of them sends a signature aggregate. 20 distinct ones. The first one we already did!
-    for i in 1..range {
-        let port = base_port + i;
-        let addr = format!("{}:{}", "leaf", port);
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
-        let mut rx = simulator.leaf_parent_channels.subscribe();
-
-        PREPARE_POOL.spawn(async move {
-            rx.recv().await.unwrap();
-        });
-    }
-}
-
-pub async fn setup_depth_children_connections(simulator: &Simulator, base_port: usize, range: usize, depth: usize, leader_divider: usize) {
+pub async fn setup_depth_children_connections(simulator: &Simulator, base_port: usize, range: usize, depth: usize, depth_channel: broadcast::Sender<()>) {
 
     let reverse_idx = simulator.consensus_data.len() - depth - 1;
 
@@ -323,12 +355,16 @@ pub async fn setup_depth_children_connections(simulator: &Simulator, base_port: 
 
         let priv_key = simulator.priv_keys.get(local_idx).unwrap().clone();
 
+        let mut rx = depth_channel.subscribe();
+
         PREPARE_POOL.spawn(async move {
             let copy = data_copy.get(&reverse_idx).unwrap();
             let sub_copy = copy.get(local_idx);
             if sub_copy.is_none() {
                 panic!("Couldn't find sig at depth {} {} {} {}", i, depth, reverse_idx, copy.len());
             }
+
+            rx.recv().await.unwrap();
 
             let (pub_key, agg_sig, bit_vec) = sub_copy.unwrap();
 
