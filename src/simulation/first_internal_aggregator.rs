@@ -293,7 +293,6 @@ pub async fn setup_parent_connections(ip: String, base_port : usize, range: usiz
         let port = base_port + i;
         let addr = format!("{}:{}", ip, port);
         //println!("Connect to {}", addr);
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
         let channel = depth_channel.clone();
         // Spawn a task to accept connections on this listener
         let mut rx = sender.subscribe();
@@ -301,6 +300,7 @@ pub async fn setup_parent_connections(ip: String, base_port : usize, range: usiz
         let i_clone = i.clone();
 
         RUN_POOL.spawn(async move {
+            let mut stream = TcpStream::connect(&addr).await.unwrap();
 
             // Connect to parent for sending.
             // Just send a single message and disconnect.

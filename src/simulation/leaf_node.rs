@@ -126,7 +126,6 @@ pub async fn setup_parent_connections(range: usize, sender: &mut Sender<Signatur
     for i in 0..range {
         let port = 10_000 + i;
         let addr = format!("{}:{}", format!("leaf_aggregator"), port);
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
 
         // Spawn a task to accept connections on this listener
         let mut rx2 = sender.subscribe();
@@ -134,6 +133,7 @@ pub async fn setup_parent_connections(range: usize, sender: &mut Sender<Signatur
         let rx = depth_channel.clone();
 
         RUN_POOL.spawn(async move {
+            let mut stream = TcpStream::connect(&addr).await.unwrap();
 
             // Spawn a new task for each connection
             if let Ok(sig) = rx2.recv().await {

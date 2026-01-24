@@ -259,7 +259,6 @@ pub async fn setup_parent_connections(sender: &mut broadcast::Sender<(BitVec, Si
     for i in 0..128 {
         let port = 30_000 + i;
         let addr = format!("{}:{}", format!("aggregator2"), port);
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
 
         // Spawn a task to accept connections on this listener
         let mut rx = sender.subscribe();
@@ -269,6 +268,7 @@ pub async fn setup_parent_connections(sender: &mut broadcast::Sender<(BitVec, Si
         let depth_channel = depth_channel.clone();
 
         RUN_POOL.spawn(async move {
+            let mut stream = TcpStream::connect(&addr).await.unwrap();
 
             // Connect to parent for sending.
             // Just send a single message and disconnect.

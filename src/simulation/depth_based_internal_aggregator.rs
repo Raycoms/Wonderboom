@@ -11,11 +11,10 @@ use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey,
 use dashmap::DashMap;
 use hmac::Mac;
 use rand::{thread_rng, Rng};
-use rayon::broadcast;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast};
-use crate::simulation::main::{HmacSha256, DST, RUN_POOL};
+use crate::simulation::main::{DST, RUN_POOL};
 
 pub struct DepthBasedInternalAggregator {
     // Fanout.

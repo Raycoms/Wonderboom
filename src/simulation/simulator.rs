@@ -178,7 +178,7 @@ impl Simulator {
 
         for i in 0..self.depth {
             let base_port = 40_000 + 2000 * i;
-            setup_depth_children_connections(&self, base_port, self.m - 1, i, depth_channels.get(i+1).unwrap().clone()).await;
+            setup_depth_children_connections(&self, base_port, self.m, i, depth_channels.get(i+1).unwrap().clone()).await;
         }
 
         // Send out the leaf votes.
@@ -344,10 +344,10 @@ pub async fn setup_depth_children_connections(simulator: &Simulator, base_port: 
 
     let reverse_idx = simulator.consensus_data.len() - depth - 1;
 
-    for i in 1..(range+1) {
+    for i in 1..range {
         let port = base_port;
         let addr = format!("{}:{}", format!("aggregator{}", depth) , port);
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
+        
 
         let data_copy = simulator.consensus_data.clone();
 
@@ -358,6 +358,7 @@ pub async fn setup_depth_children_connections(simulator: &Simulator, base_port: 
         let mut rx = depth_channel.subscribe();
 
         PREPARE_POOL.spawn(async move {
+            let mut stream = TcpStream::connect(&addr).await.unwrap();
             let copy = data_copy.get(&reverse_idx).unwrap();
             let sub_copy = copy.get(local_idx);
             if sub_copy.is_none() {

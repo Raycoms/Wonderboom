@@ -19,17 +19,13 @@ tc qdisc add dev lo root netem delay 100ms
 
 ulimit -n 100000
 
+# 256 run with missing configs tomorrow!
 configurations="256 272 288 304 320"
 cores="2 4 6 8 10 12"
-participationrate="6 20 200"
 
 for x in $configurations; do
     for y in $cores; do
-        for z in $participationrate; do
-            echo "Running Configuration: $x Cores: $y Participation Rate $z"
-            exec /usr/local/bin/tree "$x" "$y" "$z" | grep "final"
-        done
+          echo "Running Configuration: $x Cores: $y"
+          exec /usr/local/bin/tree "$x" "$y" | grep "final"
     done
 done
-
-
