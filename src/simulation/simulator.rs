@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use crate::simulation::main::{DST, PREPARE_POOL, RUN_POOL};
+use crate::simulation::main::{DST, PREPARE_POOL};
 use bit_vec::BitVec;
 use blst::byte;
 use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey, Signature};
@@ -10,6 +10,7 @@ use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
+use tokio::sync::broadcast::Sender;
 
 pub struct Simulator {
     // fanout
@@ -80,10 +81,10 @@ impl Simulator {
         agg_sig
     }
 
-    pub async fn open_connections(&mut self, sig_vec: &Arc<Vec<Signature>>) {
+    pub async fn open_connections(&mut self, sig_vec: &Arc<Vec<Signature>>, depth_channel_leaf: Sender<()>) {
 
         // Leaf nodes will send out messages to their parent
-        setup_leaf_nodes(self, sig_vec).await;
+        setup_leaf_nodes(self, sig_vec, depth_channel_leaf).await;
         println!("Finished preparing Simulator leaf connections");
 
         // Sleep a sec and let the thread creation and listener creation finish.
@@ -91,11 +92,11 @@ impl Simulator {
     }
 
     // Run simulator by notifying all threads to send the message to the client.
-    pub async fn run(&mut self) {
+    pub async fn run(&mut self, depth_channel_agg: Sender<()>) {
 
         connect_to_leaf_as_leaf(self).await;
 
-        connect_to_leader(&self).await;
+        connect_to_leader(&self, depth_channel_agg).await;
 
         // Send out the leaf votes.
         self.leaf_channels.send(()).unwrap();
@@ -111,22 +112,29 @@ impl Simulator {
     }
 }
 
-pub async fn setup_leaf_nodes(simulator: &mut Simulator, sigs: &Arc<Vec<Signature>>) {
+pub async fn setup_leaf_nodes(simulator: &mut Simulator, sigs: &Arc<Vec<Signature>>, depth_channel_leaf: Sender<()>) {
     for i in 1..simulator.m {
         let port = 10_000 + i;
         let addr = format!("{}:{}", "leaf", port);
         let listener = TcpListener::bind(&addr).await.unwrap();
 
         let mut rx = simulator.leaf_channels.subscribe();
+        let depth_channel = depth_channel_leaf.clone();
 
         let clone = sigs.clone();
         // Spawn a task to accept connections on this listener
         PREPARE_POOL.spawn(async move {
+
+            let mut rx2 = depth_channel.subscribe();
             // We atm only need a single connection per port here (saves us from having a lot of async tasks doing nothing).
             match listener.accept().await {
                 Ok((mut socket, addr)) => {
                     // Spawn a new task for each connection
                     rx.recv().await.unwrap();
+
+                    // Wait for activation message from the normal leaf.
+                    rx2.recv().await.unwrap();
+
                     socket.write(&clone[i].to_bytes()).await.unwrap();
 
                     // Await second channel to close connection.
@@ -142,40 +150,43 @@ pub async fn setup_leaf_nodes(simulator: &mut Simulator, sigs: &Arc<Vec<Signatur
 }
 
 /// These are the child processes of the first internal aggregator.
-pub async fn connect_to_leader(simulator: &Simulator) {
+pub async fn connect_to_leader(simulator: &Simulator, depth_channel_agg: Sender<()>) {
 
     // The leader gets messages from 32 slots * 64 committees per slot * 16 committee representatives - 1 (which we send in the leaf aggregator)
     // We don't do the /16 because that's too many open connections, we just send x 16 here.
     for i in 1..(32 * 64) {
-        let mut stream = TcpStream::connect(&format!("{}:{}", "leader", 10_000)).await.unwrap();
 
         let data_copy = simulator.consensus_data.clone();
         // Every 16th is a different group out of the 32 * 64 ones.
         let local_idx = i;
         let priv_key = simulator.priv_keys.get(local_idx).unwrap().clone();
 
+        let depth_channel = depth_channel_agg.clone();
+
         PREPARE_POOL.spawn(async move {
-            for i in 0..16 {
-                let copy = data_copy.get(&0).unwrap();
-                let sub_copy = copy.get(local_idx);
+            let mut rx = depth_channel.subscribe();
+            let mut stream = TcpStream::connect(&format!("{}:{}", "leader", 10_000)).await.unwrap();
+            rx.recv().await.unwrap();
 
-                if sub_copy.is_none() {
-                    panic!("Couldn't find signature for child connection {}", i);
-                }
+            let copy = data_copy.get(&0).unwrap();
+            let sub_copy = copy.get(local_idx);
 
-                let (pub_key, agg_sig, bit_vec) = sub_copy.unwrap();
-
-                let mut msg_bytes = agg_sig.to_bytes().to_vec();
-                msg_bytes.append(&mut bit_vec.to_bytes().to_vec());
-
-                let personal_sig = priv_key.sign(&msg_bytes, DST, &[]);
-
-                stream.write(&local_idx.to_be_bytes()).await.unwrap();
-
-                stream.write(&bit_vec.to_bytes()).await.unwrap();
-                stream.write(&agg_sig.to_bytes()).await.unwrap();
-                stream.write(&personal_sig.to_bytes()).await.unwrap();
+            if sub_copy.is_none() {
+                panic!("Couldn't find signature for child connection {}", i);
             }
+
+            let (pub_key, agg_sig, bit_vec) = sub_copy.unwrap();
+
+            let mut msg_bytes = agg_sig.to_bytes().to_vec();
+            msg_bytes.append(&mut bit_vec.to_bytes().to_vec());
+
+            let personal_sig = priv_key.sign(&msg_bytes, DST, &[]);
+
+            stream.write(&local_idx.to_be_bytes()).await.unwrap();
+
+            stream.write(&bit_vec.to_bytes()).await.unwrap();
+            stream.write(&agg_sig.to_bytes()).await.unwrap();
+            stream.write(&personal_sig.to_bytes()).await.unwrap();
         });
     }
 }
@@ -186,10 +197,12 @@ pub async fn connect_to_leaf_as_leaf(simulator: &Simulator) {
     for _ in 1..simulator.m {
         let port = 10_000;
         let addr = format!("{}:{}", "aggregator", port);
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
+
         let mut rx = simulator.leaf_parent_channels.subscribe();
 
         PREPARE_POOL.spawn(async move {
+            let mut stream = TcpStream::connect(&addr).await.unwrap();
+
             let mut buffer = [0; 96];
             stream.read_exact(&mut buffer).await.unwrap();
 

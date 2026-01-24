@@ -1,12 +1,12 @@
 #![allow(non_snake_case)]
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap};
 use std::sync::{Arc};
 use async_channel::{Receiver, Sender};
 use bit_vec::BitVec;
 use blst::{byte};
 use blst::BLST_ERROR::BLST_SUCCESS;
-use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey, Signature};
+use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, Signature};
 use tokio::io::{AsyncReadExt};
 use tokio::net::{TcpListener};
 use tokio::sync::{broadcast};
@@ -22,7 +22,6 @@ pub struct LeaderAggregator {
     pub public_keys: Arc<Vec<PublicKey>>,
     // Channel to hand signatures that come from the children and process them.
     pub signature_receiver: Receiver<(usize,BitVec, Signature, PublicKey)>,
-    pub private_key: Arc<SecretKey>
 }
 
 impl Default for LeaderAggregator {
@@ -33,19 +32,17 @@ impl Default for LeaderAggregator {
             child_channels: broadcast::Sender::new(2),
             public_keys: Arc::new(Vec::new()),
             signature_receiver: async_channel::unbounded().1,
-            private_key: Arc::new(SecretKey::default())
         }
     }
 }
 
 impl LeaderAggregator {
 
-    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, private_keys: Arc<Vec<SecretKey>>) -> Self {
+    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>) -> Self {
         LeaderAggregator {
             m,
             proposal: Arc::new(proposal.clone()),
             public_keys: public_keys.clone(),
-            private_key: Arc::new(private_keys.get(0).unwrap().clone()),
             ..Default::default()
         }
     }
@@ -68,7 +65,6 @@ impl LeaderAggregator {
         println!("Finished preparing Validator sibling connections");
 
         let mut biggest_result_map: BTreeMap<usize, (BitVec, Signature, PublicKey)> = BTreeMap::new();
-        let mut random_map: HashMap<usize, Vec<(BitVec, Signature, PublicKey)>> = HashMap::default();
 
         let mut runs = 0;
         while let Ok((idx, bit_vec, sig, pub_key)) = self.signature_receiver.recv().await {
@@ -77,28 +73,19 @@ impl LeaderAggregator {
             if let Some((local_bit_vec, local_sig, local_pub_key)) = biggest_result_map.get(&idx) {
                 if bit_vec.count_ones() > local_bit_vec.count_ones() {
                     // If bigger insert.
-                    random_map.get_mut(&idx).unwrap().push((local_bit_vec.clone(), local_sig.clone(), local_pub_key.clone()));
                     biggest_result_map.insert(idx, (bit_vec.clone(), sig, pub_key));
-                }
-                else {
-                    random_map.get_mut(&idx).unwrap().push((bit_vec.clone(), sig, pub_key));
                 }
             } else {
                 biggest_result_map.insert(idx, (bit_vec.clone(), sig, pub_key));
-
-                let mut vec = Vec::new();
-                vec.push((bit_vec.clone(), sig, pub_key));
-                random_map.insert(idx, vec);
-
                 continue
             }
 
-            if runs >= self.m * 16 {
+            if runs >= 2048 * 16 {
                 break;
             }
         }
 
-        println!("Got all the sigs {} {}", biggest_result_map.len(), random_map.len());
+        println!("Got all the sigs {}", biggest_result_map.len());
 
         let biggest_future = RUN_POOL.spawn_blocking(move || {
             // do some expensive computation
@@ -162,77 +149,66 @@ pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_
 
                         // Wait before starting operation
                         rx.recv().await.unwrap();
+                        
+                        let mut group_id_buffer = [0; size_of::<usize>()];
+                        socket.read_exact(&mut group_id_buffer).await.unwrap();
+                        let group_id = usize::from_be_bytes(group_id_buffer);
 
+                        let mut bit_vec_buffer = vec![0u8; m_copy.div_ceil(8)];
+                        socket.read_exact(&mut bit_vec_buffer).await.unwrap();
+                        let bit_vec = BitVec::from_bytes(&bit_vec_buffer);
+
+                        let mut sig_buffer = [0; 96];
+                        socket.read_exact(&mut sig_buffer).await.unwrap();
+                        let sig = match Signature::from_bytes(&sig_buffer) {
+                            Ok(sig) => {
+                                sig
+                            }
+                            Err(err) => {
+                                eprintln!("FI: BLS load Error 1 {:?}", err);
+                                return;
+                            }
+                        };
+
+                        let mut personal_sig_buffer = [0; 96];
+                        socket.read_exact(&mut personal_sig_buffer).await.unwrap();
+
+                        let personal_sig = match Signature::from_bytes(&personal_sig_buffer) {
+                            Ok(sig) => {
+                                sig
+                            }
+                            Err(err) => {
+                                eprintln!("FI: BLS load Error 2 {:?}", err);
+                                return;
+                            }
+                        };
+
+                        let mut msg = sig_buffer.to_vec();
+                        msg.append(&mut bit_vec_buffer.to_vec());
+                        
                         for _ in 0..16 {
-                            let mut group_id_buffer = [0; size_of::<usize>()];
-                            socket.read_exact(&mut group_id_buffer).await.unwrap();
-                            let group_id = usize::from_be_bytes(group_id_buffer);
-
-                            let mut bit_vec_buffer = vec![0u8; m_copy.div_ceil(8)];
-                            socket.read_exact(&mut bit_vec_buffer).await.unwrap();
-                            let bit_vec = BitVec::from_bytes(&bit_vec_buffer);
-
-                            let mut sig_buffer = [0; 96];
-                            socket.read_exact(&mut sig_buffer).await.unwrap();
-                            let sig = match Signature::from_bytes(&sig_buffer) {
-                                Ok(sig) => {
-                                    sig
+                            if !personal_sig.verify(false, &msg, DST, &[], &local_public_keys_copy.get(group_id).unwrap(), false).eq(&BLST_SUCCESS) {
+                                println!("1 Invalid Sig from {}", address);
+                            } else {
+                                let mut pubs = Vec::new();
+                                let start_index = group_id * m_copy;
+                                for (local_index, available) in bit_vec.iter().enumerate() {
+                                    if available {
+                                        let index = start_index + local_index;
+                                        pubs.push(local_public_keys_copy.get(index).unwrap());
+                                    }
                                 }
-                                Err(err) => {
-                                    eprintln!("FI: BLS load Error 1 {:?}", err);
-                                    return;
-                                }
-                            };
+                                let pub_key = AggregatePublicKey::aggregate(&pubs, false).unwrap().to_public_key();
 
-                            let mut personal_sig_buffer = [0; 96];
-                            socket.read_exact(&mut personal_sig_buffer).await.unwrap();
-
-                            let personal_sig = match Signature::from_bytes(&personal_sig_buffer) {
-                                Ok(sig) => {
-                                    sig
-                                }
-                                Err(err) => {
-                                    eprintln!("FI: BLS load Error 2 {:?}", err);
-                                    return;
-                                }
-                            };
-
-                            let mut msg = sig_buffer.to_vec();
-                            msg.append(&mut bit_vec_buffer.to_vec());
-
-                            let mut iterations = 1;
-                            if group_id == 0 {
-                                iterations = 16;
-                            }
-
-                            for i in 0..iterations {
-                                if !personal_sig.verify(false, &msg, DST, &[], &local_public_keys_copy.get(group_id).unwrap(), false).eq(&BLST_SUCCESS) {
-                                    println!("1 Invalid Sig from {}", address);
+                                // This verify is only necessary in the worst case here. For a best/avg-case simulation we can drop this.
+                                if sig.verify(false, &local_proposal_copy, DST, &[], &pub_key, false).eq(&BLST_SUCCESS) {
+                                    local_sender_copy.send((group_id, bit_vec.clone(), sig, pub_key)).await.unwrap();
                                 } else {
-                                    let mut pubs = Vec::new();
-                                    let start_index = group_id * m_copy;
-                                    for (local_index, available) in bit_vec.iter().enumerate() {
-                                        if available {
-                                            let index = start_index + local_index;
-                                            pubs.push(local_public_keys_copy.get(index).unwrap());
-                                        }
-                                    }
-                                    let pub_key = AggregatePublicKey::aggregate(&pubs, false).unwrap().to_public_key();
-
-                                    // This verify is only necessary in the worst case here. For a best/avg-case simulation we can drop this.
-                                    if sig.verify(false, &local_proposal_copy, DST, &[], &pub_key, false).eq(&BLST_SUCCESS) {
-                                        local_sender_copy.send((group_id, bit_vec.clone(), sig, pub_key)).await.unwrap();
-                                    } else {
-                                        println!("FI: Invalid Sig from {} {}", group_id, address);
-                                    }
+                                    println!("FI: Invalid Sig from {} {}", group_id, address);
                                 }
-                            }
-
-                            if group_id == 0 {
-                                break;
                             }
                         }
-
+                        
                         // Wait before closing connection.
                         rx.recv().await.unwrap();
                     });

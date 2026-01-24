@@ -8,6 +8,7 @@ use blst::{byte};
 use blst::BLST_ERROR::BLST_SUCCESS;
 use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey, Signature};
 use dashmap::{DashMap};
+use futures::SinkExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::simulation::main::{DST, PREPARE_POOL, RUN_POOL};
 use tokio::net::{TcpListener, TcpStream};
@@ -27,12 +28,14 @@ pub struct LeafAggregator {
     pub participation_modifier: usize,
     pub agg_sig: Signature,
     pub my_sig: Signature,
-    pub m: usize
+    pub m: usize,
+    pub depth_channel_leaf: broadcast::Sender<()>,
+    pub depth_channel_agg: broadcast::Sender<()>
 }
 
 impl LeafAggregator {
 
-    pub fn new(proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, private_keys: Arc<Vec<SecretKey>>, participation_modifier: usize, m: usize, agg_sig: Signature, my_sig: Signature) -> Self {
+    pub fn new(proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, private_keys: Arc<Vec<SecretKey>>, participation_modifier: usize, m: usize, agg_sig: Signature, my_sig: Signature, depth_channel_leaf: Sender<()>, depth_channel_agg: Sender<()>) -> Self {
         let private_key = Arc::new(private_keys.get(0).unwrap().clone());
 
         LeafAggregator {
@@ -47,7 +50,9 @@ impl LeafAggregator {
             parent_channels: broadcast::Sender::new(2),
             agg_sig,
             my_sig,
-            m
+            m,
+            depth_channel_leaf,
+            depth_channel_agg
         }
     }
 
@@ -61,7 +66,7 @@ impl LeafAggregator {
         let _ = signature_sender.send((0, self.my_sig.clone())).await;
 
         // Leaf nodes will send out messages to their parent
-        connect_to_leaf_nodes_send(&mut self.leaf_channels, self.my_sig.clone(), self.m).await;
+        connect_to_leaf_nodes_send(&mut self.leaf_channels, self.my_sig.clone(), self.m, self.depth_channel_leaf.clone()).await;
         connect_to_leaf_nodes_receive(signature_sender, &mut self.leaf_channels, self.m).await;
 
         println!("Finished preparing Validator leaf connections");
@@ -98,7 +103,7 @@ impl LeafAggregator {
             self.pub_cache.push(AggregatePublicKey::aggregate(&pub_vec, false).unwrap());
         }
 
-        setup_leader_connection(&mut self.parent_channels, &self.private_key).await;
+        setup_leader_connection(&mut self.parent_channels, &self.private_key, self.depth_channel_agg.clone()).await;
     }
 
     // Run simulator by notifying all threads to send the message to the client.
@@ -261,7 +266,7 @@ pub fn invert_pub(pk: &PublicKey) -> PublicKey {
     PublicKey::from(neg_affine)
 }
 
-pub async fn connect_to_leaf_nodes_send(sender: &mut Sender<()>, signature: Signature, m: usize) {
+pub async fn connect_to_leaf_nodes_send(sender: &mut Sender<()>, signature: Signature, m: usize, depth_channel_leaf: broadcast::Sender<()>) {
     let port = 10_000;
     let addr = format!("{}:{}", "aggregator", port);
     let listener = TcpListener::bind(&addr).await.unwrap();
@@ -271,13 +276,21 @@ pub async fn connect_to_leaf_nodes_send(sender: &mut Sender<()>, signature: Sign
 
     let m_copy = m.clone();
     PREPARE_POOL.spawn(async move {
-        for _ in 1..m_copy {
+        for i in 1..m_copy {
             let mut rx = local_sender.subscribe();
             let sig_copy = signature.clone();
+            let depth_channel = depth_channel_leaf.clone();
+            let i_clone = i.clone();
+
             match listener.accept().await {
                 Ok((mut socket, address)) => {
                     RUN_POOL.spawn(async move {
                         rx.recv().await.unwrap();
+
+                        if i_clone == 1 {
+                            depth_channel.send(()).unwrap();
+                        }
+
                         socket.write(&sig_copy.to_bytes()).await.unwrap();
                     });
                 }
@@ -297,12 +310,12 @@ pub async fn connect_to_leaf_nodes_receive(signature_sender: async_channel::Send
 
         let mut local_sender = sender.subscribe();
 
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
 
         // Spawn a task to accept connections on this listener
         let tx_clone = signature_sender.clone();
         let i_clone = i.clone();
         RUN_POOL.spawn(async move {
+            let mut stream = TcpStream::connect(&addr).await.unwrap();
 
             // Wait to start reading messages.
             local_sender.recv().await.unwrap();
@@ -320,15 +333,15 @@ pub async fn connect_to_leaf_nodes_receive(signature_sender: async_channel::Send
 }
 
 // Connect to leader and send aggregate.
-pub async fn setup_leader_connection(sender: &mut Sender<(BitVec, Signature)>, private_key: &Arc<SecretKey>) {
+pub async fn setup_leader_connection(sender: &mut Sender<(BitVec, Signature)>, private_key: &Arc<SecretKey>, depth_channel_agg: Sender<()>) {
     let addr = format!("{}:{}", "leader", 10_000);
-    let mut stream = TcpStream::connect(&addr).await.unwrap();
 
     // Spawn a task to accept connections on this listener
     let mut rx = sender.subscribe();
     let private_key = private_key.clone();
 
     RUN_POOL.spawn(async move {
+        let mut stream = TcpStream::connect(&addr).await.unwrap();
 
         // Connect to parent for sending.
         // Just send a single message and disconnect.
@@ -337,6 +350,8 @@ pub async fn setup_leader_connection(sender: &mut Sender<(BitVec, Signature)>, p
             msg_bytes.append(&mut bit_vec.to_bytes().to_vec());
 
             let personal_sig = private_key.sign(&msg_bytes, DST, &[]);
+
+            depth_channel_agg.send(()).unwrap();
 
             let index: usize = 0;
             stream.write(&index.to_be_bytes()).await.unwrap();

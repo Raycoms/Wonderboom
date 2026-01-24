@@ -1,10 +1,11 @@
 #![allow(non_snake_case)]
 
 use std::env;
+use std::thread::sleep;
 use std::time::{Duration, Instant};
 use once_cell::sync::Lazy;
-use statrs::statistics::Statistics;
 use tokio::runtime::{Builder, Runtime};
+use tokio::sync::broadcast;
 use crate::simulation::crypto;
 use crate::simulation::leader_aggregator::LeaderAggregator;
 use crate::simulation::simulator::Simulator;
@@ -65,20 +66,26 @@ pub(crate) async fn main() {
     let agg_sig = simulator.init(private_keys.clone(), public_keys.clone(), signatures.clone()).await;
 
     let mut final_time = Vec::new();
-    for _ in 0..10 {
-        simulator.open_connections(&signatures.clone()).await;
+    for _ in 0..5 {
+
+        let depth_channel_leaf: broadcast::Sender<()> = broadcast::Sender::new(2);
+        let depth_channel_agg: broadcast::Sender<()> = broadcast::Sender::new(2);
+
+        simulator.open_connections(&signatures.clone(), depth_channel_leaf.clone()).await;
         println!("Finished preparing Simulator");
 
         // Set up validator connections.
-        let mut leader_aggregator = LeaderAggregator::new(m, &proposal, public_keys.clone(), private_keys.clone());
+        let mut leader_aggregator = LeaderAggregator::new(m, &proposal, public_keys.clone());
         leader_aggregator.open_connections().await;
 
-        let mut leaf_aggregator = LeafAggregator::new(&proposal, public_keys.clone(), private_keys.clone(), participation_modifier, m, agg_sig, signatures.get(0).unwrap().clone());
+        let mut leaf_aggregator = LeafAggregator::new(&proposal, public_keys.clone(), private_keys.clone(), participation_modifier, m, agg_sig, signatures.get(0).unwrap().clone(), depth_channel_leaf.clone(), depth_channel_agg.clone());
 
         leaf_aggregator.connect().await;
 
         // Send out network messages of simulator for the validator to process.
-        simulator.run().await;
+        simulator.run(depth_channel_agg.clone()).await;
+
+        sleep(Duration::from_secs(3));
         println!("Started up Simulator");
 
         // Actually run the validator and measure time it took.
