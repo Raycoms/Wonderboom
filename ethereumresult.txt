@@ -1,0 +1,35 @@
+Running Configuration: 512 Cores: 4
+Time final: 17021
+Time final: 16525
+Time final: 16664
+Time final: 17006
+Time final: 16539
+Result final: [17021, 16525, 16664, 17006, 16539] for Args { inner: ["/usr/local/bin/tree", "512", "4"] }
+Running Configuration: 650 Cores: 4
+Time final: 17686
+Time final: 17546
+Time final: 17542
+Time final: 17610
+Time final: 17563
+Result final: [17686, 17546, 17542, 17610, 17563] for Args { inner: ["/usr/local/bin/tree", "650", "4"] }
+Running Configuration: 820 Cores: 4
+Time final: 18944
+Time final: 18327
+Time final: 18324
+Time final: 18298
+Time final: 18277
+Result final: [18944, 18327, 18324, 18298, 18277] for Args { inner: ["/usr/local/bin/tree", "820", "4"] }
+Running Configuration: 1018 Cores: 4
+Time final: 19282
+Time final: 19444
+Time final: 19540
+Time final: 19612
+Time final: 20014
+Result final: [19282, 19444, 19540, 19612, 20014] for Args { inner: ["/usr/local/bin/tree", "1018", "4"] }
+Running Configuration: 1250 Cores: 4
+Time final: 22070
+Time final: 21309
+Time final: 21300
+Time final: 21289
+Time final: 21337
+Result final: [22070, 21309, 21300, 21289, 21337] for Args { inner: ["/usr/local/bin/tree", "1250", "4"] }

@@ -66,7 +66,7 @@ pub(crate) async fn main() {
     let agg_sig = simulator.init(private_keys.clone(), public_keys.clone(), signatures.clone()).await;
 
     let mut final_time = Vec::new();
-    for _ in 0..5 {
+    for _ in 0..10 {
 
         let depth_channel_leaf: broadcast::Sender<()> = broadcast::Sender::new(2);
         let depth_channel_agg: broadcast::Sender<()> = broadcast::Sender::new(2);
