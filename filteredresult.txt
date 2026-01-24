@@ -1,0 +1,120 @@
+Result final: [5150, 5319, 5224, 5203, 5432, 5456, 5352, 5190, 5177, 5165] for Args { inner: ["/usr/local/bin/tree", "256", "2", "6"] }
+Result final: [3076, 3008, 2975, 3015, 2985, 2986, 2958, 2942, 2956, 2960] for Args { inner: ["/usr/local/bin/tree", "256", "2", "20"] }
+Result final: [2213, 2174, 2169, 2174, 2182, 2166, 2184, 2160, 2187, 2176] for Args { inner: ["/usr/local/bin/tree", "256", "2", "200"] }
+
+Result final: [3559, 3518, 3415, 3371, 3475, 3453, 3422, 3450, 3419, 3549] for Args { inner: ["/usr/local/bin/tree", "256", "4", "6"] }
+Result final: [2348, 2296, 2344, 2414, 2371, 2342, 2286, 2334, 2331, 2375] for Args { inner: ["/usr/local/bin/tree", "256", "4", "20"] }
+Result final: [1436, 1967, 1903, 1858, 1941, 1491, 1434, 1434, 1458, 1916] for Args { inner: ["/usr/local/bin/tree", "256", "4", "200"] }
+
+Result final: [2918, 2932, 2905, 2889, 2862] for Args { inner: ["/usr/local/bin/tree", "256", "6"] } and 6
+Result final: [2160, 2055, 2035, 2065, 2129] for Args { inner: ["/usr/local/bin/tree", "256", "6"] } and 20
+Result final: [1856, 1775, 1811, 1835, 1819] for Args { inner: ["/usr/local/bin/tree", "256", "6"] } and 200
+
+Result final: [2677, 2684, 2661, 2593, 2686] for Args { inner: ["/usr/local/bin/tree", "256", "8"] } and 6
+Result final: [2028, 2070, 2032, 2035, 2025] for Args { inner: ["/usr/local/bin/tree", "256", "8"] } and 20
+Result final: [1750, 1773, 1728, 1844, 1721] for Args { inner: ["/usr/local/bin/tree", "256", "8"] } and 200
+
+Result final: [2548, 2538, 2645, 2598, 2622] for Args { inner: ["/usr/local/bin/tree", "256", "10"] } and 6
+Result final: [2021, 2033, 1881, 1938, 1978] for Args { inner: ["/usr/local/bin/tree", "256", "10"] } and 20
+Result final: [1805, 1687, 1763, 1789, 1766] for Args { inner: ["/usr/local/bin/tree", "256", "10"] } and 200
+
+Result final: [2503, 2537, 2537, 2545, 2563] for Args { inner: ["/usr/local/bin/tree", "256", "12"] } and 6
+Result final: [1537, 1955, 1970, 1932, 1934] for Args { inner: ["/usr/local/bin/tree", "256", "12"] } and 20
+Result final: [1760, 1804, 1705, 1751, 1778] for Args { inner: ["/usr/local/bin/tree", "256", "12"] } and 200
+
+Result final: [6382, 6502, 6705, 6798, 6740] for Args { inner: ["/usr/local/bin/tree", "272", "2", "6"] }
+Result final: [3437, 3471, 3422, 3379, 3359] for Args { inner: ["/usr/local/bin/tree", "272", "2", "20"] }
+Result final: [2341, 2369, 2384, 2348, 2344] for Args { inner: ["/usr/local/bin/tree", "272", "2", "200"] }
+
+Result final: [4018, 3864, 3526, 3999, 3555] for Args { inner: ["/usr/local/bin/tree", "272", "4", "6"] }
+Result final: [2556, 2050, 2540, 2497, 2566] for Args { inner: ["/usr/local/bin/tree", "272", "4", "20"] }
+Result final: [1542, 1558, 2004, 1993, 1968] for Args { inner: ["/usr/local/bin/tree", "272", "4", "200"] }
+
+Result final: [3322, 3269, 3257, 3204, 3275] for Args { inner: ["/usr/local/bin/tree", "272", "6", "6"] }
+Result final: [2255, 2243, 2253, 2235, 2201] for Args { inner: ["/usr/local/bin/tree", "272", "6", "20"] }
+Result final: [1964, 1929, 1865, 1908, 1860] for Args { inner: ["/usr/local/bin/tree", "272", "6", "200"] }
+
+Result final: [2923, 2933, 2957, 2932, 2990] for Args { inner: ["/usr/local/bin/tree", "272", "8", "6"] }
+Result final: [2154, 2200, 2113, 2160, 2157] for Args { inner: ["/usr/local/bin/tree", "272", "8", "20"] }
+Result final: [1886, 1853, 1823, 1829, 1856] for Args { inner: ["/usr/local/bin/tree", "272", "8", "200"] }
+
+Result final: [2974, 2904, 2823, 2892, 2914] for Args { inner: ["/usr/local/bin/tree", "272", "10", "6"] }
+Result final: [2152, 2054, 2166, 2115, 2149] for Args { inner: ["/usr/local/bin/tree", "272", "10", "20"] }
+Result final: [1852, 1821, 1926, 1903, 1879] for Args { inner: ["/usr/local/bin/tree", "272", "10", "200"] }
+
+Result final: [2830, 2817, 2785, 2842, 2819] for Args { inner: ["/usr/local/bin/tree", "272", "12", "6"] }
+Result final: [2097, 2075, 2119, 2178, 2132] for Args { inner: ["/usr/local/bin/tree", "272", "12", "20"] }
+Result final: [1853, 1808, 1763, 1764, 1729] for Args { inner: ["/usr/local/bin/tree", "272", "12", "200"] }
+
+
+Result final: [7332, 7219, 7303, 7346, 7293] for Args { inner: ["/usr/local/bin/tree", "288", "2", "6"] }
+Result final: [3811, 3852, 3786, 3791, 3907] for Args { inner: ["/usr/local/bin/tree", "288", "2", "20"] }
+Result final: [2562, 2586, 2579, 2521, 2553] for Args { inner: ["/usr/local/bin/tree", "288", "2", "200"] }
+
+Result final: [4144, 4213, 5032, 4183, 5041] for Args { inner: ["/usr/local/bin/tree", "288", "4", "6"] }
+Result final: [2256, 2392, 2800, 2239, 2295] for Args { inner: ["/usr/local/bin/tree", "288", "4", "20"] }
+Result final: [1726, 1654, 1646, 1676, 1673] for Args { inner: ["/usr/local/bin/tree", "288", "4", "200"] }
+
+Result final: [3751, 4191, 3706, 4140, 3733] for Args { inner: ["/usr/local/bin/tree", "288", "6", "6"] }
+Result final: [2920, 2898, 2443, 2483, 2410] for Args { inner: ["/usr/local/bin/tree", "288", "6", "20"] }
+Result final: [2006, 1997, 2439, 2011, 2506] for Args { inner: ["/usr/local/bin/tree", "288", "6", "200"] }
+
+Result final: [3757, 3311, 3273, 3806, 3287] for Args { inner: ["/usr/local/bin/tree", "288", "8", "6"] }
+Result final: [2795, 2787, 2515, 2852, 2901] for Args { inner: ["/usr/local/bin/tree", "288", "8", "20"] }
+Result final: [2510, 1977, 2499, 1965, 2432] for Args { inner: ["/usr/local/bin/tree", "288", "8", "200"] }
+
+Result final: [3658, 3289, 3672, 3247, 3676] for Args { inner: ["/usr/local/bin/tree", "288", "10", "6"] }
+Result final: [2255, 2760, 2759, 2733, 2807] for Args { inner: ["/usr/local/bin/tree", "288", "10", "20"] }
+Result final: [2490, 1931, 2503, 2023, 1980] for Args { inner: ["/usr/local/bin/tree", "288", "10", "200"] }
+
+Result final: [3355, 3782, 2812, 3908, 3222] for Args { inner: ["/usr/local/bin/tree", "288", "12"] } and 6
+Result final: [2785, 2813, 2842, 2196, 2796] for Args { inner: ["/usr/local/bin/tree", "288", "12"] } and 20
+Result final: [2471, 2539, 2502, 1929, 1893] for Args { inner: ["/usr/local/bin/tree", "288", "12"] } and 200
+
+Result final: [9196, 9711, 9294, 8964, 9628] for Args { inner: ["/usr/local/bin/tree", "304", "2"] } and 6
+Result final: [4469, 4572, 4410, 4424, 4436] for Args { inner: ["/usr/local/bin/tree", "304", "2"] } and 20
+Result final: [2879, 2882, 2770, 2815, 2815] for Args { inner: ["/usr/local/bin/tree", "304", "2"] } and 200
+
+Result final: [5296, 5289, 5804, 5306, 5777] for Args { inner: ["/usr/local/bin/tree", "304", "4"] } and 6
+Result final: [2608, 2600, 2578, 2563, 3046] for Args { inner: ["/usr/local/bin/tree", "304", "4"] } and 20
+Result final: [1881, 1853, 2356, 1808, 1784] for Args { inner: ["/usr/local/bin/tree", "304", "4"] } and 200
+
+Result final: [4403, 4788, 4795, 4759, 4244] for Args { inner: ["/usr/local/bin/tree", "304", "6"] } and 6
+Result final: [3165, 3075, 2603, 2630, 3120] for Args { inner: ["/usr/local/bin/tree", "304", "6"] } and 20
+Result final: [2624, 2571, 2086, 2081, 2043] for Args { inner: ["/usr/local/bin/tree", "304", "6"] } and 200
+
+Result final: [3794, 4250, 4228, 3676, 4293] for Args { inner: ["/usr/local/bin/tree", "304", "8"] } and 6
+Result final: [2454, 2408, 2485, 2983, 2987] for Args { inner: ["/usr/local/bin/tree", "304", "8"] } and 20
+Result final: [2014, 2524, 2555, 1992, 2536] for Args { inner: ["/usr/local/bin/tree", "304", "8"] } and 200
+
+Result final: [3637, 4153, 3667, 3734, 3624] for Args { inner: ["/usr/local/bin/tree", "304", "10"] } and 6
+Result final: [2476, 2386, 2381, 2409, 2428] for Args { inner: ["/usr/local/bin/tree", "304", "10"] } and 20
+Result final: [2106, 2479, 2551, 2551, 2516] for Args { inner: ["/usr/local/bin/tree", "304", "10"] } and 200
+
+Result final: [3507, 3704, 3677, 4068, 3495] for Args { inner: ["/usr/local/bin/tree", "304", "12"] } and 6
+Result final: [2908, 2892, 2838, 2397, 2394] for Args { inner: ["/usr/local/bin/tree", "304", "12"] } and 20
+Result final: [1963, 2502, 2527, 1949, 1995] for Args { inner: ["/usr/local/bin/tree", "304", "12"] } and 200
+
+Result final: [10655, 10543, 10477, 10459, 10470] for Args { inner: ["/usr/local/bin/tree", "320", "2"] } and 6
+Result final: [4995, 4983, 4920, 5023, 5028] for Args { inner: ["/usr/local/bin/tree", "320", "2"] } and 20
+Result final: [3069, 3038, 3058, 3066, 3042] for Args { inner: ["/usr/local/bin/tree", "320", "2"] } and 200
+
+Result final: [6498, 6481, 5937, 6023, 5893] for Args { inner: ["/usr/local/bin/tree", "320", "4"] } and 6
+Result final: [3433, 3363, 3407, 3382, 2996] for Args { inner: ["/usr/local/bin/tree", "320", "4"] } and 20
+Result final: [2469, 2439, 1955, 2389, 2396] for Args { inner: ["/usr/local/bin/tree", "320", "4"] } and 200
+
+Result final: [5504, 5428, 5306, 5559, 4586] for Args { inner: ["/usr/local/bin/tree", "320", "6"] } and 6
+Result final: [3469, 3413, 2928, 2862, 2895] for Args { inner: ["/usr/local/bin/tree", "320", "6"] } and 20
+Result final: [2226, 2754, 2177, 2224, 2724] for Args { inner: ["/usr/local/bin/tree", "320", "6"] } and 200
+
+Result final: [4335, 4321, 4791, 4800, 4325] for Args { inner: ["/usr/local/bin/tree", "320", "8"] } and 6
+Result final: [3111, 3202, 3131, 3182, 2696] for Args { inner: ["/usr/local/bin/tree", "320", "8"] } and 20
+Result final: [2113, 2058, 2040, 2609, 2684] for Args { inner: ["/usr/local/bin/tree", "320", "8"] } and 200
+
+Result final: [4226, 4183, 4129, 4616, 4147] for Args { inner: ["/usr/local/bin/tree", "320", "10"] } and 6
+Result final: [2664, 2516, 2580, 2593, 3137] for Args { inner: ["/usr/local/bin/tree", "320", "10"] } and 20
+Result final: [2616, 2126, 2619, 2072, 2609] for Args { inner: ["/usr/local/bin/tree", "320", "10"] } and 200
+
+Result final: [4146, 4458, 4481, 4540, 3970] for Args { inner: ["/usr/local/bin/tree", "320", "12"] } and 6
+Result final: [2601, 2591, 3131, 3199, 3182] for Args { inner: ["/usr/local/bin/tree", "320", "12"] } and 20
+Result final: [2128, 2043, 2043, 2635, 2046] for Args { inner: ["/usr/local/bin/tree", "320", "12"] } and 200
