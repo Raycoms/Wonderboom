@@ -78,7 +78,7 @@ pub(crate) async fn main() {
         let (agg_sig, my_sig) = simulator.init(private_keys.clone(), public_keys.clone(), signatures.clone()).await;
 
         let mut final_time = Vec::new();
-        for _ in 0..5 {
+        for _ in 0..10 {
             simulator.open_connections().await;
             println!("Finished preparing Simulator");
 
