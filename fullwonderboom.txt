@@ -1,0 +1,1020 @@
+Running Configuration: 256 Cores: 2
+Time final: 5164
+Time final: 5153
+Time final: 5145
+Time final: 5119
+Time final: 5140
+Time final: 5142
+Time final: 5149
+Time final: 5126
+Time final: 5169
+Time final: 5116
+Result final: [5164, 5153, 5145, 5119, 5140, 5142, 5149, 5126, 5169, 5116] for Args { inner: ["/usr/local/bin/tree", "256", "2"] } and 6
+Time final: 3134
+Time final: 2963
+Time final: 2969
+Time final: 2986
+Time final: 2959
+Time final: 2968
+Time final: 2967
+Time final: 2996
+Time final: 2944
+Time final: 2970
+Result final: [3134, 2963, 2969, 2986, 2959, 2968, 2967, 2996, 2944, 2970] for Args { inner: ["/usr/local/bin/tree", "256", "2"] } and 20
+Time final: 2289
+Time final: 2166
+Time final: 2189
+Time final: 2141
+Time final: 2228
+Time final: 2171
+Time final: 2165
+Time final: 2178
+Time final: 2171
+Time final: 2185
+Result final: [2289, 2166, 2189, 2141, 2228, 2171, 2165, 2178, 2171, 2185] for Args { inner: ["/usr/local/bin/tree", "256", "2"] } and 200
+Running Configuration: 256 Cores: 4
+Time final: 3022
+Time final: 3384
+Time final: 2957
+Time final: 3376
+Time final: 3545
+Time final: 2968
+Time final: 2986
+Time final: 3431
+Time final: 2964
+Time final: 3423
+Result final: [3022, 3384, 2957, 3376, 3545, 2968, 2986, 3431, 2964, 3423] for Args { inner: ["/usr/local/bin/tree", "256", "4"] } and 6
+Time final: 1909
+Time final: 2276
+Time final: 2280
+Time final: 2306
+Time final: 2299
+Time final: 2293
+Time final: 2331
+Time final: 1856
+Time final: 2295
+Time final: 2317
+Result final: [1909, 2276, 2280, 2306, 2299, 2293, 2331, 1856, 2295, 2317] for Args { inner: ["/usr/local/bin/tree", "256", "4"] } and 20
+Time final: 1444
+Time final: 1429
+Time final: 1912
+Time final: 1949
+Time final: 1443
+Time final: 1422
+Time final: 1939
+Time final: 1971
+Time final: 1407
+Time final: 1419
+Result final: [1444, 1429, 1912, 1949, 1443, 1422, 1939, 1971, 1407, 1419] for Args { inner: ["/usr/local/bin/tree", "256", "4"] } and 200
+Running Configuration: 256 Cores: 6
+Time final: 2898
+Time final: 2870
+Time final: 2834
+Time final: 2833
+Time final: 2822
+Time final: 2886
+Time final: 2859
+Time final: 2865
+Time final: 2821
+Time final: 2858
+Result final: [2898, 2870, 2834, 2833, 2822, 2886, 2859, 2865, 2821, 2858] for Args { inner: ["/usr/local/bin/tree", "256", "6"] } and 6
+Time final: 2081
+Time final: 2052
+Time final: 2051
+Time final: 2113
+Time final: 2078
+Time final: 2084
+Time final: 2126
+Time final: 2073
+Time final: 2102
+Time final: 2096
+Result final: [2081, 2052, 2051, 2113, 2078, 2084, 2126, 2073, 2102, 2096] for Args { inner: ["/usr/local/bin/tree", "256", "6"] } and 20
+Time final: 1837
+Time final: 1795
+Time final: 1805
+Time final: 1845
+Time final: 1808
+Time final: 1832
+Time final: 1802
+Time final: 1763
+Time final: 1816
+Time final: 1834
+Result final: [1837, 1795, 1805, 1845, 1808, 1832, 1802, 1763, 1816, 1834] for Args { inner: ["/usr/local/bin/tree", "256", "6"] } and 200
+Running Configuration: 256 Cores: 8
+Time final: 2604
+Time final: 2679
+Time final: 2592
+Time final: 2630
+Time final: 2629
+Time final: 2680
+Time final: 2622
+Time final: 2633
+Time final: 2658
+Time final: 2654
+Result final: [2604, 2679, 2592, 2630, 2629, 2680, 2622, 2633, 2658, 2654] for Args { inner: ["/usr/local/bin/tree", "256", "8"] } and 6
+Time final: 2006
+Time final: 2003
+Time final: 1970
+Time final: 1925
+Time final: 1965
+Time final: 1982
+Time final: 2029
+Time final: 2035
+Time final: 2017
+Time final: 1996
+Result final: [2006, 2003, 1970, 1925, 1965, 1982, 2029, 2035, 2017, 1996] for Args { inner: ["/usr/local/bin/tree", "256", "8"] } and 20
+Time final: 1743
+Time final: 1770
+Time final: 1696
+Time final: 1831
+Time final: 1787
+Time final: 1705
+Time final: 1785
+Time final: 1718
+Time final: 1814
+Time final: 1747
+Result final: [1743, 1770, 1696, 1831, 1787, 1705, 1785, 1718, 1814, 1747] for Args { inner: ["/usr/local/bin/tree", "256", "8"] } and 200
+Running Configuration: 256 Cores: 10
+Time final: 2564
+Time final: 2613
+Time final: 2528
+Time final: 2577
+Time final: 2584
+Time final: 2596
+Time final: 2581
+Time final: 2624
+Time final: 2598
+Time final: 2594
+Result final: [2564, 2613, 2528, 2577, 2584, 2596, 2581, 2624, 2598, 2594] for Args { inner: ["/usr/local/bin/tree", "256", "10"] } and 6
+Time final: 1951
+Time final: 1969
+Time final: 1994
+Time final: 1992
+Time final: 1953
+Time final: 1923
+Time final: 1981
+Time final: 1960
+Time final: 1975
+Time final: 1925
+Result final: [1951, 1969, 1994, 1992, 1953, 1923, 1981, 1960, 1975, 1925] for Args { inner: ["/usr/local/bin/tree", "256", "10"] } and 20
+Time final: 1777
+Time final: 1827
+Time final: 1700
+Time final: 1745
+Time final: 1784
+Time final: 1715
+Time final: 1725
+Time final: 1697
+Time final: 1792
+Time final: 1818
+Result final: [1777, 1827, 1700, 1745, 1784, 1715, 1725, 1697, 1792, 1818] for Args { inner: ["/usr/local/bin/tree", "256", "10"] } and 200
+Running Configuration: 256 Cores: 12
+Time final: 2540
+Time final: 2491
+Time final: 2552
+Time final: 2443
+Time final: 2544
+Time final: 2502
+Time final: 2502
+Time final: 2489
+Time final: 2571
+Time final: 2437
+Result final: [2540, 2491, 2552, 2443, 2544, 2502, 2502, 2489, 2571, 2437] for Args { inner: ["/usr/local/bin/tree", "256", "12"] } and 6
+Time final: 1969
+Time final: 1905
+Time final: 1983
+Time final: 1888
+Time final: 1939
+Time final: 1972
+Time final: 1920
+Time final: 1938
+Time final: 1894
+Time final: 1954
+Result final: [1969, 1905, 1983, 1888, 1939, 1972, 1920, 1938, 1894, 1954] for Args { inner: ["/usr/local/bin/tree", "256", "12"] } and 20
+Time final: 1752
+Time final: 1698
+Time final: 1683
+Time final: 1740
+Time final: 1663
+Time final: 1767
+Time final: 1685
+Time final: 1756
+Time final: 1739
+Time final: 1768
+Result final: [1752, 1698, 1683, 1740, 1663, 1767, 1685, 1756, 1739, 1768] for Args { inner: ["/usr/local/bin/tree", "256", "12"] } and 200
+Running Configuration: 272 Cores: 2
+Time final: 6165
+Time final: 6144
+Time final: 6131
+Time final: 6113
+Time final: 6081
+Time final: 6109
+Time final: 6101
+Time final: 6102
+Time final: 6098
+Time final: 6073
+Result final: [6165, 6144, 6131, 6113, 6081, 6109, 6101, 6102, 6098, 6073] for Args { inner: ["/usr/local/bin/tree", "272", "2"] } and 6
+Time final: 3508
+Time final: 3431
+Time final: 3335
+Time final: 3343
+Time final: 3402
+Time final: 3359
+Time final: 3329
+Time final: 3345
+Time final: 3338
+Time final: 3332
+Result final: [3508, 3431, 3335, 3343, 3402, 3359, 3329, 3345, 3338, 3332] for Args { inner: ["/usr/local/bin/tree", "272", "2"] } and 20
+Time final: 2419
+Time final: 2396
+Time final: 2392
+Time final: 2371
+Time final: 2363
+Time final: 2368
+Time final: 2403
+Time final: 2366
+Time final: 2353
+Time final: 2368
+Result final: [2419, 2396, 2392, 2371, 2363, 2368, 2403, 2366, 2353, 2368] for Args { inner: ["/usr/local/bin/tree", "272", "2"] } and 200
+Running Configuration: 272 Cores: 4
+Time final: 3516
+Time final: 3481
+Time final: 3531
+Time final: 4098
+Time final: 3548
+Time final: 3891
+Time final: 3999
+Time final: 3509
+Time final: 4034
+Time final: 3513
+Result final: [3516, 3481, 3531, 4098, 3548, 3891, 3999, 3509, 4034, 3513] for Args { inner: ["/usr/local/bin/tree", "272", "4"] } and 6
+Time final: 2592
+Time final: 2029
+Time final: 2458
+Time final: 2473
+Time final: 2070
+Time final: 2548
+Time final: 2016
+Time final: 2056
+Time final: 2035
+Time final: 2440
+Result final: [2592, 2029, 2458, 2473, 2070, 2548, 2016, 2056, 2035, 2440] for Args { inner: ["/usr/local/bin/tree", "272", "4"] } and 20
+Time final: 1562
+Time final: 1525
+Time final: 1533
+Time final: 1502
+Time final: 1489
+Time final: 2053
+Time final: 2020
+Time final: 1500
+Time final: 2027
+Time final: 2066
+Result final: [1562, 1525, 1533, 1502, 1489, 2053, 2020, 1500, 2027, 2066] for Args { inner: ["/usr/local/bin/tree", "272", "4"] } and 200
+Running Configuration: 272 Cores: 6
+Time final: 3306
+Time final: 3287
+Time final: 3268
+Time final: 3252
+Time final: 3295
+Time final: 3278
+Time final: 3266
+Time final: 3231
+Time final: 3264
+Time final: 3291
+Result final: [3306, 3287, 3268, 3252, 3295, 3278, 3266, 3231, 3264, 3291] for Args { inner: ["/usr/local/bin/tree", "272", "6"] } and 6
+Time final: 2252
+Time final: 2279
+Time final: 2197
+Time final: 2205
+Time final: 2228
+Time final: 2205
+Time final: 2230
+Time final: 2230
+Time final: 2240
+Time final: 2212
+Result final: [2252, 2279, 2197, 2205, 2228, 2205, 2230, 2230, 2240, 2212] for Args { inner: ["/usr/local/bin/tree", "272", "6"] } and 20
+Time final: 1870
+Time final: 1903
+Time final: 1911
+Time final: 1826
+Time final: 1892
+Time final: 1879
+Time final: 1889
+Time final: 1867
+Time final: 1838
+Time final: 1863
+Result final: [1870, 1903, 1911, 1826, 1892, 1879, 1889, 1867, 1838, 1863] for Args { inner: ["/usr/local/bin/tree", "272", "6"] } and 200
+Running Configuration: 272 Cores: 8
+Time final: 2928
+Time final: 2907
+Time final: 2949
+Time final: 2897
+Time final: 2925
+Time final: 2895
+Time final: 2938
+Time final: 2982
+Time final: 2973
+Time final: 2933
+Result final: [2928, 2907, 2949, 2897, 2925, 2895, 2938, 2982, 2973, 2933] for Args { inner: ["/usr/local/bin/tree", "272", "8"] } and 6
+Time final: 2107
+Time final: 2119
+Time final: 2107
+Time final: 2099
+Time final: 2106
+Time final: 2149
+Time final: 2109
+Time final: 2119
+Time final: 2131
+Time final: 2081
+Result final: [2107, 2119, 2107, 2099, 2106, 2149, 2109, 2119, 2131, 2081] for Args { inner: ["/usr/local/bin/tree", "272", "8"] } and 20
+Time final: 1839
+Time final: 1834
+Time final: 1857
+Time final: 1854
+Time final: 1804
+Time final: 1824
+Time final: 1827
+Time final: 1840
+Time final: 1835
+Time final: 1825
+Result final: [1839, 1834, 1857, 1854, 1804, 1824, 1827, 1840, 1835, 1825] for Args { inner: ["/usr/local/bin/tree", "272", "8"] } and 200
+Running Configuration: 272 Cores: 10
+Time final: 2944
+Time final: 2828
+Time final: 2849
+Time final: 2856
+Time final: 2923
+Time final: 2830
+Time final: 2885
+Time final: 2817
+Time final: 2959
+Time final: 2851
+Result final: [2944, 2828, 2849, 2856, 2923, 2830, 2885, 2817, 2959, 2851] for Args { inner: ["/usr/local/bin/tree", "272", "10"] } and 6
+Time final: 2095
+Time final: 2076
+Time final: 2070
+Time final: 2134
+Time final: 2061
+Time final: 2123
+Time final: 2140
+Time final: 2053
+Time final: 2048
+Time final: 2113
+Result final: [2095, 2076, 2070, 2134, 2061, 2123, 2140, 2053, 2048, 2113] for Args { inner: ["/usr/local/bin/tree", "272", "10"] } and 20
+Time final: 1807
+Time final: 1787
+Time final: 1832
+Time final: 1860
+Time final: 1884
+Time final: 1858
+Time final: 1832
+Time final: 1847
+Time final: 1836
+Time final: 1864
+Result final: [1807, 1787, 1832, 1860, 1884, 1858, 1832, 1847, 1836, 1864] for Args { inner: ["/usr/local/bin/tree", "272", "10"] } and 200
+Running Configuration: 272 Cores: 12
+Time final: 2761
+Time final: 2786
+Time final: 2774
+Time final: 2743
+Time final: 2862
+Time final: 2822
+Time final: 2840
+Time final: 2724
+Time final: 2858
+Time final: 2742
+Result final: [2761, 2786, 2774, 2743, 2862, 2822, 2840, 2724, 2858, 2742] for Args { inner: ["/usr/local/bin/tree", "272", "12"] } and 6
+Time final: 2111
+Time final: 1993
+Time final: 2090
+Time final: 2052
+Time final: 2086
+Time final: 2087
+Time final: 2045
+Time final: 2003
+Time final: 2083
+Time final: 2053
+Result final: [2111, 1993, 2090, 2052, 2086, 2087, 2045, 2003, 2083, 2053] for Args { inner: ["/usr/local/bin/tree", "272", "12"] } and 20
+Time final: 1845
+Time final: 1755
+Time final: 1806
+Time final: 1825
+Time final: 1853
+Time final: 1808
+Time final: 1758
+Time final: 1852
+Time final: 1774
+Time final: 1747
+Result final: [1845, 1755, 1806, 1825, 1853, 1808, 1758, 1852, 1774, 1747] for Args { inner: ["/usr/local/bin/tree", "272", "12"] } and 200
+Running Configuration: 288 Cores: 2
+Time final: 7262
+Time final: 7300
+Time final: 7322
+Time final: 7295
+Time final: 7324
+Time final: 7300
+Time final: 7314
+Time final: 7255
+Time final: 7304
+Time final: 7371
+Result final: [7262, 7300, 7322, 7295, 7324, 7300, 7314, 7255, 7304, 7371] for Args { inner: ["/usr/local/bin/tree", "288", "2"] } and 6
+Time final: 3907
+Time final: 3836
+Time final: 3826
+Time final: 3818
+Time final: 3831
+Time final: 3785
+Time final: 3793
+Time final: 3831
+Time final: 3772
+Time final: 3827
+Result final: [3907, 3836, 3826, 3818, 3831, 3785, 3793, 3831, 3772, 3827] for Args { inner: ["/usr/local/bin/tree", "288", "2"] } and 20
+Time final: 2592
+Time final: 2543
+Time final: 2597
+Time final: 2554
+Time final: 2559
+Time final: 2545
+Time final: 2591
+Time final: 2625
+Time final: 2567
+Time final: 2572
+Result final: [2592, 2543, 2597, 2554, 2559, 2545, 2591, 2625, 2567, 2572] for Args { inner: ["/usr/local/bin/tree", "288", "2"] } and 200
+Running Configuration: 288 Cores: 4
+Time final: 4214
+Time final: 4154
+Time final: 4195
+Time final: 4155
+Time final: 4182
+Time final: 4208
+Time final: 4186
+Time final: 4240
+Time final: 4180
+Time final: 4177
+Result final: [4214, 4154, 4195, 4155, 4182, 4208, 4186, 4240, 4180, 4177] for Args { inner: ["/usr/local/bin/tree", "288", "4"] } and 6
+Time final: 2346
+Time final: 2248
+Time final: 2324
+Time final: 2257
+Time final: 2301
+Time final: 2260
+Time final: 2266
+Time final: 2232
+Time final: 2780
+Time final: 2743
+Result final: [2346, 2248, 2324, 2257, 2301, 2260, 2266, 2232, 2780, 2743] for Args { inner: ["/usr/local/bin/tree", "288", "4"] } and 20
+Time final: 2159
+Time final: 1657
+Time final: 2178
+Time final: 1602
+Time final: 2142
+Time final: 1650
+Time final: 1600
+Time final: 1621
+Time final: 1637
+Time final: 2161
+Result final: [2159, 1657, 2178, 1602, 2142, 1650, 1600, 1621, 1637, 2161] for Args { inner: ["/usr/local/bin/tree", "288", "4"] } and 200
+Running Configuration: 288 Cores: 6
+Time final: 4163
+Time final: 4223
+Time final: 4199
+Time final: 4249
+Time final: 3756
+Time final: 3720
+Time final: 4195
+Time final: 3742
+Time final: 3728
+Time final: 4160
+Result final: [4163, 4223, 4199, 4249, 3756, 3720, 4195, 3742, 3728, 4160] for Args { inner: ["/usr/local/bin/tree", "288", "6"] } and 6
+Time final: 2993
+Time final: 2935
+Time final: 2937
+Time final: 2947
+Time final: 2406
+Time final: 2446
+Time final: 2419
+Time final: 2907
+Time final: 2375
+Time final: 2482
+Result final: [2993, 2935, 2937, 2947, 2406, 2446, 2419, 2907, 2375, 2482] for Args { inner: ["/usr/local/bin/tree", "288", "6"] } and 20
+Time final: 2024
+Time final: 2554
+Time final: 2523
+Time final: 1954
+Time final: 1959
+Time final: 1995
+Time final: 1947
+Time final: 2534
+Time final: 2580
+Time final: 1991
+Result final: [2024, 2554, 2523, 1954, 1959, 1995, 1947, 2534, 2580, 1991] for Args { inner: ["/usr/local/bin/tree", "288", "6"] } and 200
+Running Configuration: 288 Cores: 8
+Time final: 3794
+Time final: 3720
+Time final: 3340
+Time final: 3367
+Time final: 3761
+Time final: 3753
+Time final: 3206
+Time final: 3279
+Time final: 3255
+Time final: 3771
+Result final: [3794, 3720, 3340, 3367, 3761, 3753, 3206, 3279, 3255, 3771] for Args { inner: ["/usr/local/bin/tree", "288", "8"] } and 6
+Time final: 2797
+Time final: 2286
+Time final: 2833
+Time final: 2221
+Time final: 2819
+Time final: 2228
+Time final: 2241
+Time final: 2253
+Time final: 2722
+Time final: 2818
+Result final: [2797, 2286, 2833, 2221, 2819, 2228, 2241, 2253, 2722, 2818] for Args { inner: ["/usr/local/bin/tree", "288", "8"] } and 20
+Time final: 2543
+Time final: 2481
+Time final: 1873
+Time final: 1928
+Time final: 1934
+Time final: 1908
+Time final: 1869
+Time final: 1884
+Time final: 2422
+Time final: 2388
+Result final: [2543, 2481, 1873, 1928, 1934, 1908, 1869, 1884, 2422, 2388] for Args { inner: ["/usr/local/bin/tree", "288", "8"] } and 200
+Running Configuration: 288 Cores: 10
+Time final: 3254
+Time final: 3219
+Time final: 3632
+Time final: 3199
+Time final: 3762
+Time final: 3257
+Time final: 2761
+Time final: 3642
+Time final: 3248
+Time final: 3260
+Result final: [3254, 3219, 3632, 3199, 3762, 3257, 2761, 3642, 3248, 3260] for Args { inner: ["/usr/local/bin/tree", "288", "10"] } and 6
+Time final: 2245
+Time final: 2692
+Time final: 2218
+Time final: 2237
+Time final: 2209
+Time final: 2204
+Time final: 2225
+Time final: 2257
+Time final: 2272
+Time final: 2663
+Result final: [2245, 2692, 2218, 2237, 2209, 2204, 2225, 2257, 2272, 2663] for Args { inner: ["/usr/local/bin/tree", "288", "10"] } and 20
+Time final: 2472
+Time final: 1901
+Time final: 1906
+Time final: 1901
+Time final: 2536
+Time final: 2365
+Time final: 2499
+Time final: 1927
+Time final: 1841
+Time final: 1972
+Result final: [2472, 1901, 1906, 1901, 2536, 2365, 2499, 1927, 1841, 1972] for Args { inner: ["/usr/local/bin/tree", "288", "10"] } and 200
+Running Configuration: 288 Cores: 12
+Time final: 3671
+Time final: 3172
+Time final: 3143
+Time final: 3157
+Time final: 3119
+Time final: 3187
+Time final: 3116
+Time final: 3619
+Time final: 3154
+Time final: 3216
+Result final: [3671, 3172, 3143, 3157, 3119, 3187, 3116, 3619, 3154, 3216] for Args { inner: ["/usr/local/bin/tree", "288", "12"] } and 6
+Time final: 2844
+Time final: 2165
+Time final: 2203
+Time final: 2635
+Time final: 2235
+Time final: 2709
+Time final: 2798
+Time final: 2713
+Time final: 2791
+Time final: 2275
+Result final: [2844, 2165, 2203, 2635, 2235, 2709, 2798, 2713, 2791, 2275] for Args { inner: ["/usr/local/bin/tree", "288", "12"] } and 20
+Time final: 2523
+Time final: 2504
+Time final: 1891
+Time final: 1930
+Time final: 2357
+Time final: 2376
+Time final: 2406
+Time final: 1939
+Time final: 1859
+Time final: 2506
+Result final: [2523, 2504, 1891, 1930, 2357, 2376, 2406, 1939, 1859, 2506] for Args { inner: ["/usr/local/bin/tree", "288", "12"] } and 200
+Running Configuration: 304 Cores: 2
+Time final: 8649
+Time final: 8633
+Time final: 8645
+Time final: 8702
+Time final: 8610
+Time final: 8673
+Time final: 9049
+Time final: 8650
+Time final: 8694
+Time final: 8645
+Result final: [8649, 8633, 8645, 8702, 8610, 8673, 9049, 8650, 8694, 8645] for Args { inner: ["/usr/local/bin/tree", "304", "2"] } and 6
+Time final: 4373
+Time final: 4327
+Time final: 4318
+Time final: 4343
+Time final: 4312
+Time final: 4308
+Time final: 4306
+Time final: 4298
+Time final: 4407
+Time final: 4416
+Result final: [4373, 4327, 4318, 4343, 4312, 4308, 4306, 4298, 4407, 4416] for Args { inner: ["/usr/local/bin/tree", "304", "2"] } and 20
+Time final: 2782
+Time final: 2854
+Time final: 2780
+Time final: 2844
+Time final: 2767
+Time final: 3235
+Time final: 2809
+Time final: 2827
+Time final: 2782
+Time final: 2836
+Result final: [2782, 2854, 2780, 2844, 2767, 3235, 2809, 2827, 2782, 2836] for Args { inner: ["/usr/local/bin/tree", "304", "2"] } and 200
+Running Configuration: 304 Cores: 4
+Time final: 5025
+Time final: 4942
+Time final: 4999
+Time final: 4949
+Time final: 5595
+Time final: 4920
+Time final: 4983
+Time final: 4933
+Time final: 4965
+Time final: 5011
+Result final: [5025, 4942, 4999, 4949, 5595, 4920, 4983, 4933, 4965, 5011] for Args { inner: ["/usr/local/bin/tree", "304", "4"] } and 6
+Time final: 2620
+Time final: 2528
+Time final: 2566
+Time final: 2526
+Time final: 3126
+Time final: 2586
+Time final: 3078
+Time final: 3054
+Time final: 2526
+Time final: 2599
+Result final: [2620, 2528, 2566, 2526, 3126, 2586, 3078, 3054, 2526, 2599] for Args { inner: ["/usr/local/bin/tree", "304", "4"] } and 20
+Time final: 1763
+Time final: 1766
+Time final: 1751
+Time final: 1821
+Time final: 2368
+Time final: 2248
+Time final: 1820
+Time final: 1771
+Time final: 2268
+Time final: 2262
+Result final: [1763, 1766, 1751, 1821, 2368, 2248, 1820, 1771, 2268, 2262] for Args { inner: ["/usr/local/bin/tree", "304", "4"] } and 200
+Running Configuration: 304 Cores: 6
+Time final: 4285
+Time final: 4795
+Time final: 4224
+Time final: 4744
+Time final: 3828
+Time final: 4287
+Time final: 4331
+Time final: 4344
+Time final: 4682
+Time final: 4779
+Result final: [4285, 4795, 4224, 4744, 3828, 4287, 4331, 4344, 4682, 4779] for Args { inner: ["/usr/local/bin/tree", "304", "6"] } and 6
+Time final: 3150
+Time final: 2619
+Time final: 2585
+Time final: 3139
+Time final: 3094
+Time final: 3145
+Time final: 3147
+Time final: 2597
+Time final: 3089
+Time final: 3153
+Result final: [3150, 2619, 2585, 3139, 3094, 3145, 3147, 2597, 3089, 3153] for Args { inner: ["/usr/local/bin/tree", "304", "6"] } and 20
+Time final: 2608
+Time final: 2620
+Time final: 2646
+Time final: 2060
+Time final: 2649
+Time final: 2086
+Time final: 2605
+Time final: 2095
+Time final: 2038
+Time final: 2597
+Result final: [2608, 2620, 2646, 2060, 2649, 2086, 2605, 2095, 2038, 2597] for Args { inner: ["/usr/local/bin/tree", "304", "6"] } and 200
+Running Configuration: 304 Cores: 8
+Time final: 4188
+Time final: 3783
+Time final: 3758
+Time final: 4228
+Time final: 3656
+Time final: 4256
+Time final: 4216
+Time final: 3758
+Time final: 4250
+Time final: 3365
+Result final: [4188, 3783, 3758, 4228, 3656, 4256, 4216, 3758, 4250, 3365] for Args { inner: ["/usr/local/bin/tree", "304", "8"] } and 6
+Time final: 2946
+Time final: 2447
+Time final: 2972
+Time final: 2963
+Time final: 2955
+Time final: 2999
+Time final: 2979
+Time final: 2982
+Time final: 2370
+Time final: 3004
+Result final: [2946, 2447, 2972, 2963, 2955, 2999, 2979, 2982, 2370, 3004] for Args { inner: ["/usr/local/bin/tree", "304", "8"] } and 20
+Time final: 2504
+Time final: 1989
+Time final: 2587
+Time final: 2557
+Time final: 1490
+Time final: 2021
+Time final: 2082
+Time final: 2519
+Time final: 2524
+Time final: 1997
+Result final: [2504, 1989, 2587, 2557, 1490, 2021, 2082, 2519, 2524, 1997] for Args { inner: ["/usr/local/bin/tree", "304", "8"] } and 200
+Running Configuration: 304 Cores: 10
+Time final: 4154
+Time final: 4155
+Time final: 4134
+Time final: 4113
+Time final: 4104
+Time final: 3627
+Time final: 3672
+Time final: 3561
+Time final: 4074
+Time final: 4129
+Result final: [4154, 4155, 4134, 4113, 4104, 3627, 3672, 3561, 4074, 4129] for Args { inner: ["/usr/local/bin/tree", "304", "10"] } and 6
+Time final: 2458
+Time final: 2390
+Time final: 2391
+Time final: 2903
+Time final: 2368
+Time final: 2960
+Time final: 2425
+Time final: 2391
+Time final: 2981
+Time final: 2348
+Result final: [2458, 2390, 2391, 2903, 2368, 2960, 2425, 2391, 2981, 2348] for Args { inner: ["/usr/local/bin/tree", "304", "10"] } and 20
+Time final: 2542
+Time final: 2474
+Time final: 2003
+Time final: 2482
+Time final: 1987
+Time final: 1951
+Time final: 1984
+Time final: 1951
+Time final: 1993
+Time final: 2483
+Result final: [2542, 2474, 2003, 2482, 1987, 1951, 1984, 1951, 1993, 2483] for Args { inner: ["/usr/local/bin/tree", "304", "10"] } and 200
+Running Configuration: 304 Cores: 12
+Time final: 3576
+Time final: 3502
+Time final: 3582
+Time final: 3554
+Time final: 3561
+Time final: 4075
+Time final: 3493
+Time final: 3984
+Time final: 3502
+Time final: 4067
+Result final: [3576, 3502, 3582, 3554, 3561, 4075, 3493, 3984, 3502, 4067] for Args { inner: ["/usr/local/bin/tree", "304", "12"] } and 6
+Time final: 2958
+Time final: 2391
+Time final: 2954
+Time final: 2378
+Time final: 2943
+Time final: 2345
+Time final: 2411
+Time final: 2392
+Time final: 2341
+Time final: 2930
+Result final: [2958, 2391, 2954, 2378, 2943, 2345, 2411, 2392, 2341, 2930] for Args { inner: ["/usr/local/bin/tree", "304", "12"] } and 20
+Time final: 2006
+Time final: 2569
+Time final: 1987
+Time final: 1943
+Time final: 1919
+Time final: 2544
+Time final: 2525
+Time final: 1997
+Time final: 2515
+Time final: 2467
+Result final: [2006, 2569, 1987, 1943, 1919, 2544, 2525, 1997, 2515, 2467] for Args { inner: ["/usr/local/bin/tree", "304", "12"] } and 200
+Running Configuration: 320 Cores: 2
+Time final: 10701
+Time final: 10301
+Time final: 10235
+Time final: 10246
+Time final: 10252
+Time final: 10314
+Time final: 10230
+Time final: 10247
+Time final: 10221
+Time final: 10304
+Result final: [10701, 10301, 10235, 10246, 10252, 10314, 10230, 10247, 10221, 10304] for Args { inner: ["/usr/local/bin/tree", "320", "2"] } and 6
+Time final: 4990
+Time final: 4962
+Time final: 4936
+Time final: 4923
+Time final: 4953
+Time final: 4972
+Time final: 4925
+Time final: 4944
+Time final: 4928
+Time final: 5014
+Result final: [4990, 4962, 4936, 4923, 4953, 4972, 4925, 4944, 4928, 5014] for Args { inner: ["/usr/local/bin/tree", "320", "2"] } and 20
+Time final: 3060
+Time final: 3092
+Time final: 3061
+Time final: 3089
+Time final: 3419
+Time final: 3053
+Time final: 3407
+Time final: 2992
+Time final: 3066
+Time final: 3158
+Result final: [3060, 3092, 3061, 3089, 3419, 3053, 3407, 2992, 3066, 3158] for Args { inner: ["/usr/local/bin/tree", "320", "2"] } and 200
+Running Configuration: 320 Cores: 4
+Time final: 6400
+Time final: 6371
+Time final: 6435
+Time final: 5889
+Time final: 5850
+Time final: 6427
+Time final: 6407
+Time final: 5935
+Time final: 6395
+Time final: 6418
+Result final: [6400, 6371, 6435, 5889, 5850, 6427, 6407, 5935, 6395, 6418] for Args { inner: ["/usr/local/bin/tree", "320", "4"] } and 6
+Time final: 3496
+Time final: 3492
+Time final: 3364
+Time final: 3410
+Time final: 3366
+Time final: 3381
+Time final: 2932
+Time final: 3361
+Time final: 3437
+Time final: 3379
+Result final: [3496, 3492, 3364, 3410, 3366, 3381, 2932, 3361, 3437, 3379] for Args { inner: ["/usr/local/bin/tree", "320", "4"] } and 20
+Time final: 2493
+Time final: 2418
+Time final: 2497
+Time final: 1930
+Time final: 1903
+Time final: 2417
+Time final: 2447
+Time final: 1843
+Time final: 2441
+Time final: 2418
+Result final: [2493, 2418, 2497, 1930, 1903, 2417, 2447, 1843, 2441, 2418] for Args { inner: ["/usr/local/bin/tree", "320", "4"] } and 200
+Running Configuration: 320 Cores: 6
+Time final: 4946
+Time final: 5371
+Time final: 4894
+Time final: 5024
+Time final: 5427
+Time final: 5027
+Time final: 4942
+Time final: 5378
+Time final: 4986
+Time final: 5064
+Result final: [4946, 5371, 4894, 5024, 5427, 5027, 4942, 5378, 4986, 5064] for Args { inner: ["/usr/local/bin/tree", "320", "6"] } and 6
+Time final: 2929
+Time final: 3398
+Time final: 3383
+Time final: 2849
+Time final: 2773
+Time final: 3409
+Time final: 3332
+Time final: 2923
+Time final: 3423
+Time final: 3365
+Result final: [2929, 3398, 3383, 2849, 2773, 3409, 3332, 2923, 3423, 3365] for Args { inner: ["/usr/local/bin/tree", "320", "6"] } and 20
+Time final: 2175
+Time final: 2159
+Time final: 2179
+Time final: 2740
+Time final: 2740
+Time final: 2172
+Time final: 2172
+Time final: 2754
+Time final: 2201
+Time final: 2184
+Result final: [2175, 2159, 2179, 2740, 2740, 2172, 2172, 2754, 2201, 2184] for Args { inner: ["/usr/local/bin/tree", "320", "6"] } and 200
+Running Configuration: 320 Cores: 8
+Time final: 4348
+Time final: 4247
+Time final: 4341
+Time final: 4301
+Time final: 4724
+Time final: 4261
+Time final: 4274
+Time final: 4285
+Time final: 4249
+Time final: 4264
+Result final: [4348, 4247, 4341, 4301, 4724, 4261, 4274, 4285, 4249, 4264] for Args { inner: ["/usr/local/bin/tree", "320", "8"] } and 6
+Time final: 2619
+Time final: 3112
+Time final: 2578
+Time final: 2663
+Time final: 2633
+Time final: 3166
+Time final: 2610
+Time final: 2603
+Time final: 2659
+Time final: 2654
+Result final: [2619, 3112, 2578, 2663, 2633, 3166, 2610, 2603, 2659, 2654] for Args { inner: ["/usr/local/bin/tree", "320", "8"] } and 20
+Time final: 2120
+Time final: 2622
+Time final: 2099
+Time final: 2635
+Time final: 2056
+Time final: 2082
+Time final: 2635
+Time final: 2618
+Time final: 2054
+Time final: 2046
+Result final: [2120, 2622, 2099, 2635, 2056, 2082, 2635, 2618, 2054, 2046] for Args { inner: ["/usr/local/bin/tree", "320", "8"] } and 200
+Running Configuration: 320 Cores: 10
+Time final: 4615
+Time final: 4526
+Time final: 4539
+Time final: 4594
+Time final: 4609
+Time final: 4157
+Time final: 4580
+Time final: 4093
+Time final: 4173
+Time final: 4621
+Result final: [4615, 4526, 4539, 4594, 4609, 4157, 4580, 4093, 4173, 4621] for Args { inner: ["/usr/local/bin/tree", "320", "10"] } and 6
+Time final: 3096
+Time final: 2574
+Time final: 3071
+Time final: 2523
+Time final: 3136
+Time final: 3152
+Time final: 2545
+Time final: 2579
+Time final: 3110
+Time final: 3146
+Result final: [3096, 2574, 3071, 2523, 3136, 3152, 2545, 2579, 3110, 3146] for Args { inner: ["/usr/local/bin/tree", "320", "10"] } and 20
+Time final: 2049
+Time final: 2032
+Time final: 2703
+Time final: 2073
+Time final: 2002
+Time final: 2668
+Time final: 2631
+Time final: 2645
+Time final: 2097
+Time final: 2035
+Result final: [2049, 2032, 2703, 2073, 2002, 2668, 2631, 2645, 2097, 2035] for Args { inner: ["/usr/local/bin/tree", "320", "10"] } and 200
+Running Configuration: 320 Cores: 12
+Time final: 4473
+Time final: 4051
+Time final: 4446
+Time final: 3958
+Time final: 3984
+Time final: 4055
+Time final: 3972
+Time final: 3931
+Time final: 3951
+Time final: 4004
+Result final: [4473, 4051, 4446, 3958, 3984, 4055, 3972, 3931, 3951, 4004] for Args { inner: ["/usr/local/bin/tree", "320", "12"] } and 6
+Time final: 3049
+Time final: 2517
+Time final: 3069
+Time final: 2527
+Time final: 3136
+Time final: 3093
+Time final: 3048
+Time final: 3011
+Time final: 2488
+Time final: 3068
+Result final: [3049, 2517, 3069, 2527, 3136, 3093, 3048, 3011, 2488, 3068] for Args { inner: ["/usr/local/bin/tree", "320", "12"] } and 20
+Time final: 2133
+Time final: 2611
+Time final: 2115
+Time final: 2566
+Time final: 2014
+Time final: 2666
+Time final: 2727
+Time final: 2538
+Time final: 2077
+Time final: 2566
+Result final: [2133, 2611, 2115, 2566, 2014, 2666, 2727, 2538, 2077, 2566] for Args { inner: ["/usr/local/bin/tree", "320", "12"] } and 200
