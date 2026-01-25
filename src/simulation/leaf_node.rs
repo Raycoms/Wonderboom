@@ -81,21 +81,22 @@ impl LeafNode {
 
     pub async fn verify(&mut self, participation_modifier: usize) {
         let mut handles = Vec::new();
-        
-        for i in 0..4 {
-            let share = self.public_keys.len()/4;
+        let workers = RUN_POOL.metrics().num_workers();
+
+        for i in 0..workers {
+            let share = self.public_keys.len().div_ceil(workers);
             let mut pubs_cache_copy = self.pub_cache.get(i).unwrap().clone();
             let pubs_copy = self.public_keys.clone();
 
             let j = i.clone()*share;
             handles.push(RUN_POOL.spawn(async move {
-                for index in j..(j+share) {
+                for index in j..(j+share).min(pubs_copy.len()){
                     if index % participation_modifier == 0 {
                         pubs_cache_copy.add_public_key(&crate::simulation::depth_based_internal_aggregator::invert_pub(pubs_copy.get(index).unwrap()), false).unwrap();
                     }
                 }
 
-                for index in j..(j+share) {
+                for index in j..(j+share).min(pubs_copy.len()){
                     if index % participation_modifier == 0 {
                         pubs_cache_copy.add_public_key(pubs_copy.get(index).unwrap(), false).unwrap();
                     }

@@ -148,8 +148,10 @@ impl LeafAggregator {
 
         let (mut final_agg_sender, mut final_agg_receiver) = mpsc::channel(100);
 
+        let workers = RUN_POOL.metrics().num_workers();
+
         // Atm just 4, we want to make this more dynamic in the future.
-        for _ in 0..4 {
+        for _ in 0..workers {
             let mut rx2 = rx.clone();
             let mut final_agg_sender_copy = final_agg_sender.clone();
             let m = self.m;
