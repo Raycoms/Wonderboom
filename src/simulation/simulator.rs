@@ -113,40 +113,49 @@ impl Simulator {
 }
 
 pub async fn setup_leaf_nodes(simulator: &mut Simulator, sigs: &Arc<Vec<Signature>>, depth_channel_leaf: Sender<()>) {
-    for i in 1..simulator.m {
-        let port = 10_000 + i;
-        let addr = format!("{}:{}", "leaf", port);
-        let listener = TcpListener::bind(&addr).await.unwrap();
 
-        let mut rx = simulator.leaf_channels.subscribe();
-        let depth_channel = depth_channel_leaf.clone();
+    let leaf_channel = simulator.leaf_channels.clone();
+    let sigs = sigs.clone();
+    let m_clone = simulator.m;
 
-        let clone = sigs.clone();
-        // Spawn a task to accept connections on this listener
-        PREPARE_POOL.spawn(async move {
+    PREPARE_POOL.spawn(async move {
 
-            let mut rx2 = depth_channel.subscribe();
-            // We atm only need a single connection per port here (saves us from having a lot of async tasks doing nothing).
-            match listener.accept().await {
-                Ok((mut socket, addr)) => {
-                    // Spawn a new task for each connection
-                    rx.recv().await.unwrap();
+        for i in 1..m_clone {
+            let port = 10_000 + i;
+            let addr = format!("{}:{}", "leaf", port);
+            let listener = TcpListener::bind(&addr).await.unwrap();
 
-                    // Wait for activation message from the normal leaf.
-                    rx2.recv().await.unwrap();
+            let mut rx = leaf_channel.subscribe();
+            let depth_channel = depth_channel_leaf.clone();
 
-                    socket.write(&clone[i].to_bytes()).await.unwrap();
+            let sigs_clone = sigs.clone();
+            // Spawn a task to accept connections on this listener
+            PREPARE_POOL.spawn(async move {
+                let mut rx2 = depth_channel.subscribe();
+                // We atm only need a single connection per port here (saves us from having a lot of async tasks doing nothing).
+                match listener.accept().await {
+                    Ok((mut socket, addr)) => {
+                        // Spawn a new task for each connection
+                        rx.recv().await.unwrap();
 
-                    // Await second channel to close connection.
+                        // Wait for activation message from the normal leaf.
+                        rx2.recv().await.unwrap();
 
-                    let _ = rx.recv().await;
+                        socket.write(&i.to_be_bytes()).await.unwrap();
+
+                        socket.write(&sigs_clone[i].to_bytes()).await.unwrap();
+
+                        // Await second channel to close connection.
+
+                        let _ = rx.recv().await;
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to accept connection: {}", e);
+                    }
                 }
-                Err(e) => {
-                    eprintln!("Failed to accept connection: {}", e);
-                }
-            }
-        });
-    }
+            });
+        }
+    });
 }
 
 /// These are the child processes of the first internal aggregator.

@@ -1,13 +1,10 @@
 #![allow(non_snake_case)]
 
 use std::sync::Arc;
-use std::thread::sleep;
-use std::time::Duration;
 use bit_vec::BitVec;
 use blst::{byte};
 use blst::BLST_ERROR::BLST_SUCCESS;
 use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey, Signature};
-use dashmap::{DashMap};
 use futures::SinkExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::simulation::main::{DST, PREPARE_POOL, RUN_POOL};
@@ -23,7 +20,7 @@ pub struct LeafAggregator {
     pub leaf_channels: broadcast::Sender<()>,
     pub parent_channels: broadcast::Sender<(BitVec, Signature)>,
     pub public_keys: Arc<Vec<PublicKey>>,
-    pub signature_map: Arc<DashMap<usize, Option<Signature>>>,
+    pub signature_channel: (async_channel::Sender<(usize, Signature)>, async_channel::Receiver<(usize, Signature)>),
     pub pub_cache: Vec<AggregatePublicKey>,
     pub participation_modifier: usize,
     pub agg_sig: Signature,
@@ -45,7 +42,7 @@ impl LeafAggregator {
             public_keys,
             participation_modifier,
             pub_cache: Vec::new(),
-            signature_map: Arc::new(DashMap::new()),
+            signature_channel: async_channel::bounded(m),
             leaf_channels: broadcast::Sender::new(2),
             parent_channels: broadcast::Sender::new(2),
             agg_sig,
@@ -62,34 +59,14 @@ impl LeafAggregator {
         // We set up connections for: Leaf nodes, siblings & parent nodes.
 
         // Signature processing channel.
-        let (signature_sender, signature_receiver) = async_channel::bounded(self.m);
-        let _ = signature_sender.send((0, self.my_sig.clone())).await;
 
         // Leaf nodes will send out messages to their parent
         connect_to_leaf_nodes_send(&mut self.leaf_channels, self.my_sig.clone(), self.m, self.depth_channel_leaf.clone()).await;
-        connect_to_leaf_nodes_receive(signature_sender, &mut self.leaf_channels, self.m).await;
+        connect_to_leaf_nodes_receive(self.signature_channel.0.clone(), &mut self.leaf_channels, self.m, self.proposal.clone(), self.public_keys.clone()).await;
 
         println!("Finished preparing Validator leaf connections");
 
         let workers = RUN_POOL.metrics().num_workers();
-
-        // Setup threads to verify signatures from the other leaf nodes.
-        for _ in 0..workers {
-            let proposal = self.proposal.clone();
-
-            let leaf_sig_map_copy = self.signature_map.clone();
-            let local_public_keys = self.public_keys.clone();
-            let signature_receiver_copy = signature_receiver.clone();
-            RUN_POOL.spawn(async move {
-                while let Ok((id, sig)) = signature_receiver_copy.recv().await {
-                    if sig.verify(false, &proposal, DST, &[], local_public_keys.get(id).unwrap(), false).eq(&BLST_SUCCESS) {
-                        leaf_sig_map_copy.insert(id.clone(), Some(sig.clone()));
-                    } else {
-                        println!("Got wrong signature from leaf. {}", id);
-                    }
-                }
-            });
-        }
 
         for i in 0..workers {
             let share = self.public_keys.len().div_ceil(workers);
@@ -104,6 +81,8 @@ impl LeafAggregator {
         }
 
         setup_leader_connection(&mut self.parent_channels, &self.private_key, self.depth_channel_agg.clone()).await;
+
+        let _ = self.signature_channel.0.send((0, self.my_sig.clone())).await;
     }
 
     // Run simulator by notifying all threads to send the message to the client.
@@ -118,83 +97,55 @@ impl LeafAggregator {
         // Send out the leaf votes.
         self.leaf_channels.send(()).unwrap();
 
-        let (tx, rx) = async_channel::bounded(100);
-
-        // How many sigs/pubs we want to aggregate in parallel.
-        let PARALLEL_SLIZES = 100;
-
-        let mut curr_index = 0;
-        let mut vec = Vec::new();
-
-        let sig_map_copy = self.signature_map.clone();
-        let pub_map_copy = self.public_keys.clone();
-        let tx2 = tx.clone();
+        let workers = RUN_POOL.metrics().num_workers();
         let m_clone = self.m.clone();
-        RUN_POOL.spawn(async move {
-            loop {
-                // Drain dashmap here. Entry might've not yet synched. Or entry might be empty because of timeout.
-                if let Some(the_sig) = sig_map_copy.get(&curr_index) {
-                    if let Some(sig) = the_sig.as_ref() {
-                        vec.push((curr_index.clone(), pub_map_copy.get(curr_index).unwrap().clone(), sig.clone()));
-                        curr_index += 1;
+
+        let parallel_slices = self.m.div_ceil(workers); //43
+        let (mut final_agg_sender, mut final_agg_receiver) = mpsc::channel(100);
+
+        let overshoot = parallel_slices * workers - self.m;
+
+        for i in 0..workers {
+            let mut rx2 = self.signature_channel.1.clone();
+            let mut final_agg_sender_copy = final_agg_sender.clone();
+            let m = self.m;
+            let local_public_keys = self.public_keys.clone();
+            let i_clone = i.clone();
+            let m_copy = self.m.clone();
+
+            //let proposal  = self.proposal.clone();
+            RUN_POOL.spawn(async move {
+                let mut pub_vec = Vec::with_capacity(parallel_slices);
+                let mut sig_vec = Vec::with_capacity(parallel_slices);
+
+                let mut pub_bit_vec = BitVec::from_elem(m, false);
+
+                loop {
+                    match rx2.recv().await {
+                        Ok((id, sig)) => {
+                            pub_vec.push(local_public_keys.get(id).unwrap());
+                            sig_vec.push(sig);
+
+                            pub_bit_vec.set(id.clone(), true);
+                        }
+                        _ => {}
                     }
 
-                    if vec.len() >= PARALLEL_SLIZES {
-                        let new_vec = vec.split_off(PARALLEL_SLIZES);
-                        tx2.send(vec).await.unwrap();
-                        vec = new_vec;
-                    }
-                    // After I got all stop querying them.
-                    if curr_index >= m_clone {
-                        tx2.send(vec).await.unwrap();
-                        drop(tx2);
+                    if pub_vec.len() >= parallel_slices || (i_clone == workers - 1 && pub_vec.len() >= parallel_slices - overshoot) {
                         break;
                     }
                 }
-                else {
-                    sleep(Duration::from_millis(1));
-                }
-            }
-        });
 
+                let sig_refs: Vec<&Signature> = sig_vec.iter().collect();
+                let agg_sig = AggregateSignature::aggregate(&sig_refs, false).unwrap();
+                let agg_pub = AggregatePublicKey::aggregate(&pub_vec, false).unwrap();
 
-        let (mut final_agg_sender, mut final_agg_receiver) = mpsc::channel(100);
-
-        let workers = RUN_POOL.metrics().num_workers();
-        for _ in 0..workers {
-            let mut rx2 = rx.clone();
-            let mut final_agg_sender_copy = final_agg_sender.clone();
-            //let proposal  = self.proposal.clone();
-            let m_clone = self.m.clone();
-            RUN_POOL.spawn(async move {
-                'task: loop {
-                    match rx2.recv().await {
-                        Ok(sigs) => {
-                            let mut pub_vec = Vec::with_capacity(sigs.len());
-                            let mut sig_vec = Vec::with_capacity(sigs.len());
-                            let mut pub_bit_vec = BitVec::from_elem(m_clone, false);
-
-                            for (idx, pub_key, sig) in sigs.iter() {
-                                pub_vec.push(pub_key);
-                                sig_vec.push(sig);
-                                pub_bit_vec.set(idx.clone(), true);
-                            }
-
-                            let agg_sig = AggregateSignature::aggregate(&sig_vec, false).unwrap();
-                            let agg_pub = AggregatePublicKey::aggregate(&pub_vec, false).unwrap();
-
-                            //agg_sig.to_signature().verify(false, &proposal, DST, &[], &agg_pub.to_public_key(), false);
-                            final_agg_sender_copy.send((pub_bit_vec, agg_sig, agg_pub, pub_vec.len())).await.unwrap();
-                        }
-                        _ => break 'task
-                    }
-                }
+                //agg_sig.to_signature().verify(false, &proposal, DST, &[], &agg_pub.to_public_key(), false);
+                final_agg_sender_copy.send((pub_bit_vec, agg_sig, agg_pub, pub_vec.len())).await.unwrap();
             });
         }
 
-        drop(tx);
         println!("Reached Aggregation part.");
-
 
         let (mut bit_vec, mut agg_sig, mut agg_pub, mut len) = final_agg_receiver.recv().await.unwrap();
         loop {
@@ -290,6 +241,7 @@ pub async fn connect_to_leaf_nodes_send(sender: &mut Sender<()>, signature: Sign
                         if i_clone == 1 {
                             depth_channel.send(()).unwrap();
                         }
+                        socket.write(&i_clone.to_be_bytes()).await.unwrap();
 
                         socket.write(&sig_copy.to_bytes()).await.unwrap();
                     });
@@ -303,28 +255,34 @@ pub async fn connect_to_leaf_nodes_send(sender: &mut Sender<()>, signature: Sign
 }
 
 // Connect to the other leaf nodes and receive m signatures for aggregation.
-pub async fn connect_to_leaf_nodes_receive(signature_sender: async_channel::Sender<(usize, Signature)>, sender: &mut Sender<()>, m: usize) {
+pub async fn connect_to_leaf_nodes_receive(signature_sender: async_channel::Sender<(usize, Signature)>, sender: &mut Sender<()>, m: usize, proposal: Arc<Vec<byte>>, local_public_keys: Arc<Vec<PublicKey>>) {
     for i in 1..m {
         let port = 10_000 + i;
         let addr = format!("{}:{}", "leaf", port);
 
         let mut local_sender = sender.subscribe();
 
-
+        let local_public_keys = local_public_keys.clone();
+        let proposal_clone = proposal.clone();
         // Spawn a task to accept connections on this listener
         let tx_clone = signature_sender.clone();
-        let i_clone = i.clone();
         RUN_POOL.spawn(async move {
             let mut stream = TcpStream::connect(&addr).await.unwrap();
 
             // Wait to start reading messages.
             local_sender.recv().await.unwrap();
 
+            let mut id_buffer = [0; size_of::<usize>()];
+            stream.read_exact(&mut id_buffer).await.unwrap();
+            let id = usize::from_be_bytes(id_buffer);
+
             // We're just expecting a single message from each leaf node.
             let mut buffer = [0; 96];
             stream.read_exact(&mut buffer).await.unwrap();
             if let Ok(sig) = Signature::from_bytes(&buffer) {
-                tx_clone.send((i.clone(), sig)).await.unwrap();
+                if sig.verify(false, &proposal_clone, DST, &[], local_public_keys.get(id).unwrap(), false).eq(&BLST_SUCCESS) {
+                    tx_clone.send((id.clone(), sig)).await.unwrap();
+                }
             } else {
                 eprintln!("Invalid signature bytes");
             }
