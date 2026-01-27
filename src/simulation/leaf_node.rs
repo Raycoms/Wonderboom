@@ -53,13 +53,14 @@ impl LeafNode {
         // We set up connections for: parent nodes.
         setup_parent_connections( 128, &mut self.parent_channels, self.depth_channel.clone()).await;
         println!("Finished preparing leaf connections");
+        let workers = RUN_POOL.metrics().num_workers();
 
-        for i in 0..4 {
-            let share = self.public_keys.len()/4;
+        for i in 0..workers {
+            let share = self.public_keys.len().div_ceil(workers);
             let pubs_copy = self.public_keys.clone();
-            let j = i.clone()*share;
+            let j = i.clone() * share;
             let mut pub_vec = Vec::new();
-            for index in j..(j+share){
+            for index in j..(j+share).min(pubs_copy.len()){
                 pub_vec.push(pubs_copy.get(index).unwrap());
             }
 

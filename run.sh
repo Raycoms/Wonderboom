@@ -20,8 +20,8 @@ tc qdisc add dev lo root netem delay 100ms
 ulimit -n 100000
 
 # 256 run with missing configs tomorrow!
-configurations="256 272 288 304 320"
-cores="2 4 6 8 10 12"
+configurations="288 304 320"
+cores="2 4 6 8 10"
 
 for x in $configurations; do
     for y in $cores; do
