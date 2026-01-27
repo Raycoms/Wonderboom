@@ -1,4 +1,0 @@
-Result final: [5167, 5116, 5119, 5153, 5080, 5125, 5139, 5231, 5116, 5131] for Args { inner: ["/usr/local/bin/tree", "256", "2"] } and 6
-Result final: [3054, 2972, 2941, 2987, 2987, 2950, 2925, 2933, 2979, 2963] for Args { inner: ["/usr/local/bin/tree", "256", "2"] } and 20
-Result final: [2246, 2196, 2158, 2182, 2168, 2197, 2168, 2143, 2195, 2207] for Args { inner: ["/usr/local/bin/tree", "256", "2"] } and 200
-Result final: [3504, 3503, 3382, 2971, 3510, 3389, 3379, 3450, 3380, 3497] for Args { inner: ["/usr/local/bin/tree", "256", "4"] } and 6
