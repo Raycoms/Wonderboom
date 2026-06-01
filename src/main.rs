@@ -3,6 +3,7 @@ mod simulation;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
+    calculation::bandwidthcalc::run();
     //calculation::tree_calc::run();
-    simulation::main::main().await;
+    //simulation::main::main().await;
 }

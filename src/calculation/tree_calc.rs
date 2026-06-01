@@ -22,15 +22,6 @@
 // Final cost for m=512,d=2: network: 600ms computational: 401.51501370009595ms
 // Final cost for m=256,d=3: network: 800ms computational: 354.94651030771195ms
 
-//todo: Can we calculate a tree with varying fanout , smaller on top, bigger below. (Easy depth loop + check!)
-
-//todo: This changes significantly if we
-// a) Can do optimistic things (because we can punish misbehaving nodes) and
-//      - This could also just be partially true (not on the lowest level, but indeed on the intermediate level).
-// b) Do duplicates (larger agg cost).
-
-//todo: Another question is optimistic handup. We can handup faster after some percentage (find formula again), but now we might have to merge things.
-
 pub(crate) fn run() {
 
     /*let N = 1024.0*1024.0*2.0;
@@ -106,9 +97,7 @@ pub(crate) fn run() {
 
     //calculate_cost(128.0);
     //calculate_cost(64.0);
-
-    // todo binary search?
-
+    
     //calculate_cost_variable(64.0, 4.0);
     //calculate_cost_variable(128.0, 4.0);
     //calculate_cost_variable(265.0, 2.0);
@@ -314,8 +303,6 @@ fn calculate_cost_with_all_tricks(N: f64, m: f64, agg_pub_trick: bool, agg_verif
     // Initial computation at the first set of nodes.
     // Verify all signatures and build an aggregate.
     let initial_comp = (VERIFYING_COST * m + SINGLE_AGG_PUB_COST * m + AGG_SIG_COST * m) / C;
-    // todo Can we use MACs to make this cheaper? (async the verification of public key sig then connect and setup mac connection).
-    //  then we only have to verify the actual signatures we use, which is for all the other ones, just the smaller fanout.
 
     let mut tree_comp = 0.0;
     let mut nodes_left = N1;
@@ -348,8 +335,6 @@ fn calculate_cost_with_all_tricks(N: f64, m: f64, agg_pub_trick: bool, agg_verif
     //println!("-----------------------------------------------------------------------------------------")
     (depth+1, total)
 }
-
-// todo: Think: We want tcp connections and exchange cheap symmetric signatures ahead of time. We have pretty few connections, so this is cheap and we can use cheap communication on demand.
 
 // also add aggregate-verify as a trick (worst case x2 cost).
 fn calculate_cost_with_agg_pub_trick_with_majority_rule(N: f64, m: f64, agg_pub_trick: bool) -> (i32, i32) {
@@ -387,7 +372,6 @@ fn calculate_cost_with_agg_pub_trick_with_majority_rule(N: f64, m: f64, agg_pub_
     // Initial computation at the first set of nodes.
     // Verify all signatures and build an aggregate.
     let initial_comp = (VERIFYING_COST * m + SINGLE_AGG_PUB_COST * m + AGG_SIG_COST * m) / C;
-    //todo think of costs here. We have some O(n^2) cheap sig still 128 microseconds. so 0,128 ms.
 
     let mut tree_comp = 0.0;
     let mut nodes_left = N1;
