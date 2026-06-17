@@ -313,7 +313,7 @@ pub async fn setup_leader_connection(sender: &mut Sender<(BitVec, Signature)>, p
 
             let index: usize = 0;
             stream.write(&index.to_be_bytes()).await.unwrap(); // 8 bytes
-            stream.write(&bit_vec.to_bytes()).await.unwrap(); // m
+            stream.write(&bit_vec.to_bytes()).await.unwrap(); // m bits
             stream.write(&agg_sig.to_bytes()).await.unwrap(); // 96 bytes
             stream.write(&personal_sig.to_bytes()).await.unwrap(); // 96 bytes
         }
