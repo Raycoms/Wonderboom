@@ -20,12 +20,15 @@ tc qdisc add dev lo root netem delay 100ms
 ulimit -n 100000
 
 # 256 run with missing configs tomorrow!
-configurations="288 304 320"
-cores="2 4 6 8 10"
+configurations="224 240 256 272 288 304 320"
+cores="2 4 6 8 10 12 14"
+program="wonderboom horn"
 
-for x in $configurations; do
-    for y in $cores; do
-          echo "Running Configuration: $x Cores: $y"
-          exec /usr/local/bin/tree "$x" "$y" | grep "final"
-    done
+for prog in $program; do
+  for x in $configurations; do
+      for y in $cores; do
+            echo "Running Configuration: $x Cores: $y"
+            exec /usr/local/bin/tree "$x" "$y" "$prog" | grep "final"
+      done
+  done
 done

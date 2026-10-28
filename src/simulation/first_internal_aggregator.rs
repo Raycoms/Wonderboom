@@ -6,11 +6,12 @@ use async_channel::{Receiver, Sender};
 use bit_vec::BitVec;
 use blst::{byte};
 use blst::BLST_ERROR::BLST_SUCCESS;
-use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey, Signature};
+use blst::min_pk::{AggregateSignature, PublicKey, SecretKey, Signature};
 use rand::{thread_rng, Rng};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast};
+use crate::simulation::crypto;
 use crate::simulation::main::{DST, RUN_POOL};
 
 pub struct FirstInternalAggregator {
@@ -255,15 +256,14 @@ pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_
                             if !personal_sig.verify(false, &msg, DST, &[], &local_public_keys_copy.get(group_id).unwrap(), false).eq(&BLST_SUCCESS) {
                                 println!("1 Invalid Sig from {}", address);
                             } else {
-                                let mut pubs = Vec::new();
                                 let start_index = group_id * local_m_copy;
-                                for (local_index, available) in bit_vec.iter().enumerate() {
-                                    if available {
-                                        let index = start_index + local_index;
-                                        pubs.push(local_public_keys_copy.get(index).unwrap());
-                                    }
-                                }
-                                let pub_key = AggregatePublicKey::aggregate(&pubs, false).unwrap().to_public_key();
+                                let pub_key = crypto::sum_selected_pubs(
+                                    bit_vec
+                                        .iter()
+                                        .enumerate()
+                                        .filter(|(_, available)| *available)
+                                        .map(|(i, _)| &local_public_keys_copy[start_index + i]),
+                                ).to_public_key();
 
                                 // This verify is only necessary in the worst case here. For a best/avg-case simulation we can drop this.
                                 if sig.verify(false, &local_proposal_copy, DST, &[], &pub_key, false).eq(&BLST_SUCCESS) {

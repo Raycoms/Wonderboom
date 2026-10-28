@@ -14,6 +14,7 @@ use rand::{thread_rng, Rng};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast};
+use crate::simulation::crypto;
 use crate::simulation::main::{DST, RUN_POOL};
 
 pub struct DepthBasedInternalAggregator {
@@ -237,8 +238,6 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
     let listener = TcpListener::bind(&addr).await.unwrap();
     let mut local_sender = sender.clone();
 
-    let map = Arc::new(DashMap::new());
-
     let sender_copy = signature_sender.clone();
     let public_keys_copy = public_keys.clone();
     let proposal_copy = proposal.clone();
@@ -246,6 +245,17 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
     let expected_sigs_copy : usize = expected_sigs.clone();
     let m_copy = m.clone();
     let participation_modifier = participation_modifier.clone();
+
+    // Untimed: sum of the simulated non-participants per child group (group ids 0..m/16).
+    let restores: Arc<Vec<AggregatePublicKey>> = Arc::new(
+        (0..m / 16)
+            .map(|g| sum_simulated_missing(
+                &public_keys[g * expected_sigs..(g + 1) * expected_sigs],
+                participation_modifier,
+            ))
+            .collect(),
+    );
+
     RUN_POOL.spawn(async move {
         for _ in 0..m_copy {
             let mut rx = local_sender.subscribe();
@@ -254,8 +264,8 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
             let local_public_keys_copy = public_keys_copy.clone();
             let local_proposal_copy = proposal_copy.clone();
             let local_expected_sigs = expected_sigs_copy.clone();
-            let map = map.clone();
             let participation_modifier = participation_modifier.clone();
+            let restores = restores.clone();
             match listener.accept().await {
                 Ok((mut socket, address)) => {
 
@@ -315,7 +325,6 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
                             }
                         };
 
-
                         let mut msg = sig_buffer.to_vec();
                         msg.append(&mut bit_vec_buffer.to_vec());
                         msg.append(&mut sig_buffer2.to_vec());
@@ -325,51 +334,13 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
                             println!("2 Invalid Sig from {}", address);
                         } else {
 
+                            // Based on participation rate we "skip" 1/3 of pubs here.
                             let start_index = group_id * local_expected_sigs;
-                            if !map.contains_key(&group_id) {
-                                let mut pubs = Vec::new();
+                            let pks = &local_public_keys_copy[start_index..start_index + local_expected_sigs];
+                            let restore = &restores[group_id];
 
-                                for local_index in 0..bit_vec.len() {
-                                    let index = start_index + local_index;
-                                    pubs.push(local_public_keys_copy.get(index).unwrap());
-                                }
-                                let pub_key = AggregatePublicKey::aggregate(&pubs, false).unwrap();
-                                map.insert(group_id, pub_key);
-                            }
-
-                            let mut agg_pub = map.get(&group_id).unwrap().clone();
-
-                            // Now here we do subtract instead of add!
-                            let start_index = group_id * local_expected_sigs;
-                            for (local_index, available) in bit_vec.iter().enumerate() {
-                                if !available || local_index % participation_modifier == 0 {
-                                    let index = start_index + local_index;
-                                    agg_pub.add_public_key(&invert_pub(local_public_keys_copy.get(index).unwrap()), false).unwrap();
-                                }
-                            }
-
-                            for (local_index, available) in bit_vec.iter().enumerate() {
-                                if local_index % participation_modifier == 0 {
-                                    let index = start_index + local_index;
-                                    agg_pub.add_public_key(local_public_keys_copy.get(index).unwrap(), false).unwrap();
-                                }
-                            }
-
-                            let mut pub_key2 = map.get(&group_id).unwrap().clone();
-
-                            for (local_index, available) in bit_vec2.iter().enumerate() {
-                                if !available || local_index % participation_modifier == 0 {
-                                    let index = start_index + local_index;
-                                    pub_key2.add_public_key(&invert_pub(local_public_keys_copy.get(index).unwrap()), false).unwrap();
-                                }
-                            }
-
-                            for (local_index, available) in bit_vec2.iter().enumerate() {
-                                if local_index % participation_modifier == 0 {
-                                    let index = start_index + local_index;
-                                    pub_key2.add_public_key(local_public_keys_copy.get(index).unwrap(), false).unwrap();
-                                }
-                            }
+                            let agg_pub  = sum_participating(pks, &bit_vec,  participation_modifier, restore);
+                            let pub_key2 = sum_participating(pks, &bit_vec2, participation_modifier, restore);
 
                             // This verify is only necessary in the worst case here. For a best/avg-case simulation we can drop this.
                             if sig.verify(false, &local_proposal_copy, DST, &[], &agg_pub.to_public_key(), false).eq(&BLST_SUCCESS) {
@@ -395,14 +366,26 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
     });
 }
 
-pub fn invert_pub(pk: &PublicKey) -> PublicKey {
-    let affine: &blst::blst_p1_affine = pk.into();
-    let mut p1 = blst::blst_p1::default();
-    unsafe { blst::blst_p1_from_affine(&mut p1, affine) };
-    unsafe { blst::blst_p1_cneg(&mut p1, true) };
-    let mut neg_affine = blst::blst_p1_affine::default();
-    unsafe { blst::blst_p1_to_affine(&mut neg_affine, &p1) };
-    PublicKey::from(neg_affine)
+/// Untimed precomputation: sum of the keys the participation simulation excludes (i % pm == 0).
+pub fn sum_simulated_missing(pks: &[PublicKey], pm: usize) -> AggregatePublicKey {
+    crypto::sum_selected_pubs(pks.iter().step_by(pm))
+}
+
+/// From-scratch aggregation under simulated participation.
+/// Timed cost: the participating keys (bit set and i % pm != 0).
+/// `restore` (precomputed, 1 point op) re-adds the simulated non-participants so the
+/// simulator's fully signed aggregate still verifies.
+pub fn sum_participating(
+    pks: &[PublicKey],
+    bits: &BitVec,
+    pm: usize,
+    restore: &AggregatePublicKey,
+) -> AggregatePublicKey {
+    let mut pk = crypto::sum_selected_pubs(
+        bits.iter().enumerate().filter(|(i, a)| *a && i % pm != 0).map(|(i, _)| &pks[i]),
+    );
+    pk.add_aggregate(restore);
+    pk
 }
 
 pub async fn setup_parent_connections(ip: String, base_port : usize, range: usize, sender: &mut broadcast::Sender<(BitVec, Signature, BitVec, Signature)>, private_key: &Arc<SecretKey>, depth_channel: broadcast::Sender<()>) {

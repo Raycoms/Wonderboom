@@ -3,7 +3,8 @@ use std::{fs, io};
 use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
 use std::sync::Arc;
 use bincode::{de::Decoder, enc::Encoder, Decode, Encode};
-use blst::min_pk::{PublicKey, SecretKey, Signature};
+use blst::{blst_p1, blst_p1_add_or_double, blst_p1_affine, blst_p1_cneg, blst_p1s_add, blst_p2, blst_p2_affine, blst_p2s_add};
+use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey, Signature};
 use rand_core::{OsRng, RngCore};
 use crate::simulation::main::{DST, PREPARE_POOL};
 
@@ -164,3 +165,73 @@ async fn load_or_create_crypto(N: usize, proposal: &Vec<u8>) -> (Arc<Vec<SecretK
 
     (Arc::new(private_keys), Arc::new(public_keys), Arc::new(signatures))
 }
+
+fn as_affines(pks: &[PublicKey]) -> &[blst_p1_affine] {
+    unsafe { std::slice::from_raw_parts(pks.as_ptr() as *const blst_p1_affine, pks.len()) }
+}
+
+fn bulk_sum(points: &[blst_p1_affine]) -> blst_p1 {
+    let mut ret = blst_p1::default();
+    if points.is_empty() {
+        return ret;
+    }
+    let p: [*const blst_p1_affine; 2] = [&points[0], std::ptr::null()];
+    unsafe { blst_p1s_add(&mut ret, &p[0], points.len()) };
+    ret
+}
+
+pub fn sum_pubs(pks: &[PublicKey]) -> AggregatePublicKey {
+    AggregatePublicKey::from(bulk_sum(as_affines(pks)))
+}
+
+pub fn sum_selected_pubs<'a, I>(pks: I) -> AggregatePublicKey
+where
+    I: IntoIterator<Item = &'a PublicKey>,
+{
+    let ptrs: Vec<*const blst_p1_affine> = pks
+        .into_iter()
+        .map(|pk| <&blst_p1_affine>::from(pk) as *const blst_p1_affine)
+        .collect();
+    let mut ret = blst_p1::default();
+    if !ptrs.is_empty() {
+        // Every entry is non-null, so blst reads each pointer individually.
+        unsafe { blst_p1s_add(&mut ret, ptrs.as_ptr(), ptrs.len()) };
+    }
+    AggregatePublicKey::from(ret)
+}
+
+pub fn sum_selected_sigs<'a, I>(sigs: I) -> AggregateSignature
+where
+    I: IntoIterator<Item = &'a Signature>,
+{
+    let ptrs: Vec<*const blst_p2_affine> = sigs
+        .into_iter()
+        .map(|s| <&blst_p2_affine>::from(s) as *const blst_p2_affine)
+        .collect();
+    let mut ret = blst_p2::default();
+    if !ptrs.is_empty() {
+        unsafe { blst_p2s_add(&mut ret, ptrs.as_ptr(), ptrs.len()) };
+    }
+    AggregateSignature::from(ret)
+}
+
+pub fn sum_sigs(sigs: &[Signature]) -> AggregateSignature {
+    let pts = unsafe { std::slice::from_raw_parts(sigs.as_ptr() as *const blst_p2_affine, sigs.len()) };
+    let mut ret = blst_p2::default();
+    if !pts.is_empty() {
+        let p: [*const blst_p2_affine; 2] = [&pts[0], std::ptr::null()];
+        unsafe { blst_p2s_add(&mut ret, &p[0], pts.len()) };
+    }
+    AggregateSignature::from(ret)
+}
+
+pub fn sub(a: &AggregatePublicKey, b: &AggregatePublicKey) -> AggregatePublicKey {
+    let mut neg: blst_p1 = (*b).into();
+    let mut acc: blst_p1 = (*a).into();
+    unsafe {
+        blst_p1_cneg(&mut neg, true);
+        blst_p1_add_or_double(&mut acc, &acc, &neg);
+    }
+    AggregatePublicKey::from(acc)
+}
+

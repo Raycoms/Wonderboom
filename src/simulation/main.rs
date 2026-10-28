@@ -67,12 +67,17 @@ pub(crate) async fn main() {
         m = args[1].parse::<usize>().unwrap();
     }
 
+    let mut program : String = "wonderboom".to_string();
+    if args.len() > 2 {
+        program = args[2].parse::<String>().unwrap();
+    }
+
     let additional_depth = 2;
     let leader_divider = 1;
 
     let ((private_keys, public_keys, signatures), proposal) = crypto::generate_or_load((m/16).pow( (additional_depth + 1) as u32) * m / leader_divider).await;
 
-    for participation_modifier in [6, 20, 200] {
+    for participation_modifier in [3, 10, 100] {
         // Set up simulator connections.
         let mut simulator = Simulator::new(m, additional_depth, &proposal, leader_divider, &ip);
         let (agg_sig, my_sig) = simulator.init(private_keys.clone(), public_keys.clone(), signatures.clone()).await;
@@ -106,7 +111,7 @@ pub(crate) async fn main() {
 
             simulator.connect().await;
 
-            let mut leaf_node = LeafNode::new(m, &proposal, public_keys.clone(), my_sig, agg_sig, &ip, participation_modifier, depth_channels.get(additional_depth + 2).unwrap().clone());
+            let mut leaf_node = LeafNode::new(m, &proposal, public_keys.clone(), my_sig, agg_sig, &ip, participation_modifier, depth_channels.get(additional_depth + 2).unwrap().clone(), program.clone());
             leaf_node.connect().await;
 
             leaf_aggregator.connect().await;
@@ -153,6 +158,6 @@ pub(crate) async fn main() {
             sleep(Duration::from_secs(10));
         }
 
-        println!("Result final: {:?} for {:?} and {}", final_time, env::args(), participation_modifier);
+        println!("{} Result final: {:?} for {:?} and {}", program, final_time, env::args(), participation_modifier);
     }
 }

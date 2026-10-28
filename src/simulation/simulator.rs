@@ -3,8 +3,7 @@
 use crate::simulation::main::{DST, PREPARE_POOL};
 use bit_vec::BitVec;
 use blst::byte;
-use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey, Signature};
-use rand_core::RngCore;
+use blst::min_pk::{AggregateSignature, PublicKey, SecretKey, Signature};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread::sleep;
@@ -13,6 +12,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::Sender;
+use crate::simulation::crypto;
 
 pub struct Simulator {
     // Fanout.
@@ -66,15 +66,8 @@ impl Simulator {
         let first_depth_size = self.N/self.m;
         let mut curr_index = 0;
         for _ in 0..first_depth_size {
-            let mut curr_pub_ref_vec = Vec::new();
-            let mut curr_sig_ref_vec = Vec::new();
-            for _ in 0..self.m {
-                curr_pub_ref_vec.push(&public_keys[curr_index]);
-                curr_sig_ref_vec.push(&signatures[curr_index]);
-                curr_index+=1;
-            }
-            let agg_pub = AggregatePublicKey::aggregate(&curr_pub_ref_vec, false).unwrap().to_public_key();
-            let agg_sig = AggregateSignature::aggregate(&curr_sig_ref_vec, false).unwrap().to_signature();
+            let agg_pub = crypto::sum_pubs(&public_keys[curr_index..curr_index + self.m]).to_public_key();
+            let agg_sig = crypto::sum_sigs(&signatures[curr_index..curr_index + self.m]).to_signature();
             agg_vec.push((agg_pub, agg_sig, BitVec::from_elem(self.m, true)));
         }
         agg_map.insert(0, agg_vec);
@@ -108,13 +101,13 @@ impl Simulator {
                 compound_bit_vec.extend(bitvec);
 
                 if curr_sig_ref_vec.len() == (self.m/16) {
-                    let agg_pub = AggregatePublicKey::aggregate(&curr_pub_ref_vec, false).unwrap().to_public_key();
-                    let agg_sig = AggregateSignature::aggregate(&curr_sig_ref_vec, false).unwrap().to_signature();
+                    let agg_pub = crypto::sum_selected_pubs(curr_pub_ref_vec.iter().copied()).to_public_key();
+                    let agg_sig = crypto::sum_selected_sigs(curr_sig_ref_vec.iter().copied()).to_signature();
 
                     local_agg_vec.push((agg_pub, agg_sig, compound_bit_vec.clone()));
 
                     curr_sig_ref_vec.clear();
-                    curr_sig_ref_vec.clear();
+                    curr_pub_ref_vec.clear();
                     compound_bit_vec = BitVec::new();
                 }
             }

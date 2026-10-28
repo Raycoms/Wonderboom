@@ -11,6 +11,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::simulation::main::{DST, RUN_POOL};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc};
+use crate::simulation::crypto;
 
 pub struct LeafAggregator {
     // Fanout.
@@ -99,7 +100,6 @@ impl LeafAggregator {
             let m = self.m;
             let local_public_keys = self.public_keys.clone();
             let i_clone = i.clone();
-            let m_copy = self.m.clone();
 
             //let proposal  = self.proposal.clone();
             RUN_POOL.spawn(async move {
@@ -124,12 +124,12 @@ impl LeafAggregator {
                     }
                 }
 
-                let sig_refs: Vec<&Signature> = sig_vec.iter().collect();
-                let agg_sig = AggregateSignature::aggregate(&sig_refs, false).unwrap();
-                let agg_pub = AggregatePublicKey::aggregate(&pub_vec, false).unwrap();
+                let len = pub_vec.len();
+                let agg_sig = crypto::sum_sigs(&sig_vec);
+                let agg_pub = crypto::sum_selected_pubs(pub_vec);
 
                 //agg_sig.to_signature().verify(false, &proposal, DST, &[], &agg_pub.to_public_key(), false);
-                final_agg_sender_copy.send((pub_bit_vec, agg_sig, agg_pub, pub_vec.len())).await.unwrap();
+                final_agg_sender_copy.send((pub_bit_vec, agg_sig, agg_pub, len)).await.unwrap();
             });
         }
 

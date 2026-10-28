@@ -7,9 +7,10 @@ use blst::min_pk::{AggregatePublicKey, PublicKey, Signature};
 use rand_core::RngCore;
 use tokio::io::{AsyncWriteExt};
 use crate::simulation::main::{DST, RUN_POOL};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::{TcpStream};
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::Sender;
+use crate::simulation::crypto;
 
 pub struct LeafNode {
     // Fanout.
@@ -24,11 +25,12 @@ pub struct LeafNode {
     pub ip: String,
     pub participation_modifier: usize,
     pub depth_channel: broadcast::Sender<()>,
+    pub program: String
 }
 
 impl LeafNode {
 
-    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, my_sig: Signature, agg_sig: Signature, ip: &String, participation_modifier: usize, depth_channel: broadcast::Sender<()>) -> Self {
+    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, my_sig: Signature, agg_sig: Signature, ip: &String, participation_modifier: usize, depth_channel: broadcast::Sender<()>, program: String) -> Self {
         let mut rng = rand::thread_rng();
         let mut ikm = [0u8; 32];
         rng.fill_bytes(&mut ikm);
@@ -43,7 +45,8 @@ impl LeafNode {
             pub_cache: Vec::new(),
             ip: ip.clone(),
             depth_channel,
-            participation_modifier
+            participation_modifier,
+            program
         }
     }
 
@@ -59,12 +62,8 @@ impl LeafNode {
             let share = self.public_keys.len().div_ceil(workers);
             let pubs_copy = self.public_keys.clone();
             let j = i.clone() * share;
-            let mut pub_vec = Vec::new();
-            for index in j..(j+share).min(pubs_copy.len()){
-                pub_vec.push(pubs_copy.get(index).unwrap());
-            }
 
-            self.pub_cache.push(AggregatePublicKey::aggregate(&pub_vec, false).unwrap());
+            self.pub_cache.push(crypto::sum_pubs(&pubs_copy[j..(j+share).min(pubs_copy.len())]));
         }
     }
 
@@ -72,8 +71,14 @@ impl LeafNode {
     pub async fn run(&mut self) {
         println!("Starting up Leaf node");
 
-        self.verify(self.participation_modifier).await;
-        self.verify(self.participation_modifier).await;
+        if self.program == "Wonderboom" {
+            self.verify(self.participation_modifier).await;
+            self.verify(self.participation_modifier).await;
+        } else {
+            for _ in 0..16 {
+                self.verify(self.participation_modifier).await;
+            }
+        }
 
         self.parent_channels.send(self.my_sig.clone()).unwrap();
         println!("Awaiting sending proposal");
@@ -86,23 +91,19 @@ impl LeafNode {
 
         for i in 0..workers {
             let share = self.public_keys.len().div_ceil(workers);
-            let mut pubs_cache_copy = self.pub_cache.get(i).unwrap().clone();
+            let pubs_cache_copy = self.pub_cache.get(i).unwrap().clone();
             let pubs_copy = self.public_keys.clone();
 
             let j = i.clone()*share;
             handles.push(RUN_POOL.spawn(async move {
-                for index in j..(j+share).min(pubs_copy.len()){
-                    if index % participation_modifier == 0 {
-                        pubs_cache_copy.add_public_key(&crate::simulation::depth_based_internal_aggregator::invert_pub(pubs_copy.get(index).unwrap()), false).unwrap();
-                    }
-                }
-
-                for index in j..(j+share).min(pubs_copy.len()){
-                    if index % participation_modifier == 0 {
-                        pubs_cache_copy.add_public_key(pubs_copy.get(index).unwrap(), false).unwrap();
-                    }
-                }
-                pubs_cache_copy.to_public_key()
+                let missing = crypto::sum_selected_pubs(
+                    (j..(j + share).min(pubs_copy.len()))
+                        .filter(|i| i % participation_modifier == 0)
+                        .map(|i| &pubs_copy[i]),
+                );
+                let mut pk = crypto::sub(&pubs_cache_copy, &missing);
+                pk.add_aggregate(&missing);
+                pk.to_public_key()
             }));
         }
 
