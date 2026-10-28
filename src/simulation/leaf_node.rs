@@ -71,7 +71,7 @@ impl LeafNode {
     pub async fn run(&mut self) {
         println!("Starting up Leaf node");
 
-        if self.program == "Wonderboom" {
+        if self.program.eq_ignore_ascii_case("wonderboom") {
             self.verify(self.participation_modifier).await;
             self.verify(self.participation_modifier).await;
         } else {

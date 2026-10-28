@@ -69,6 +69,7 @@ impl Simulator {
             let agg_pub = crypto::sum_pubs(&public_keys[curr_index..curr_index + self.m]).to_public_key();
             let agg_sig = crypto::sum_sigs(&signatures[curr_index..curr_index + self.m]).to_signature();
             agg_vec.push((agg_pub, agg_sig, BitVec::from_elem(self.m, true)));
+            curr_index += self.m;
         }
         agg_map.insert(0, agg_vec);
 

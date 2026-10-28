@@ -185,7 +185,7 @@ impl DepthBasedInternalAggregator {
             let mut sig_vec = Vec::new();
             let mut random_bit_vec= BitVec::new();
             for (idx, vec) in random_map.iter() {
-                let (bit_vec, sig, pub_key) = vec.get(thread_rng().gen_range(0..(vec.len()-1))).unwrap();
+                let (bit_vec, sig, pub_key) = vec.get(thread_rng().gen_range(0..vec.len())).unwrap();
 
                 random_bit_vec.append(&mut bit_vec.clone());
 
