@@ -220,7 +220,8 @@ pub async fn setup_parent_connections(sender: &mut broadcast::Sender<(BitVec, Si
 
         RUN_POOL.spawn(async move {
             let mut stream = TcpStream::connect(&addr).await.unwrap();
-
+            stream.set_nodelay(true).unwrap();
+            
             // Connect to parent for sending.
             // Just send a single message and disconnect.
             if let Ok((bit_vec, agg_sig)) = rx.recv().await {
@@ -235,10 +236,11 @@ pub async fn setup_parent_connections(sender: &mut broadcast::Sender<(BitVec, Si
                 let personal_sig = private_key.sign(&msg_bytes, DST, &[]);
 
                 let index : usize = 0;
-                stream.write(&index.to_be_bytes()).await.unwrap();
-                stream.write(&bit_vec.to_bytes()).await.unwrap();
-                stream.write(&agg_sig.to_bytes()).await.unwrap();
-                stream.write(&personal_sig.to_bytes()).await.unwrap();
+          
+                stream.write_all(&index.to_be_bytes()).await.unwrap();
+                stream.write_all(&bit_vec.to_bytes()).await.unwrap();
+                stream.write_all(&agg_sig.to_bytes()).await.unwrap();
+                stream.write_all(&personal_sig.to_bytes()).await.unwrap();
             }
         });
     }

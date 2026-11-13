@@ -137,6 +137,7 @@ pub async fn setup_parent_connections(range: usize, sender: &mut Sender<Signatur
 
         RUN_POOL.spawn(async move {
             let mut stream = TcpStream::connect(&addr).await.unwrap();
+            stream.set_nodelay(true).unwrap();
 
             // Spawn a new task for each connection
             if let Ok(sig) = rx2.recv().await {
@@ -146,9 +147,9 @@ pub async fn setup_parent_connections(range: usize, sender: &mut Sender<Signatur
                 }
 
                 let index : usize = 0;
-                stream.write(&index.to_be_bytes()).await.unwrap();
+                stream.write_all(&index.to_be_bytes()).await.unwrap();
 
-                stream.write(&sig.to_bytes()).await.unwrap();
+                stream.write_all(&sig.to_bytes()).await.unwrap();
             }
         });
     }

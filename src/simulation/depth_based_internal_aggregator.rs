@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc};
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 use async_channel::{Receiver, Sender};
 use bit_vec::BitVec;
@@ -121,7 +121,6 @@ impl DepthBasedInternalAggregator {
         
         let mut total_time = 0;
         let mut setup_time = 0;
-        let mut total_count_time = 0;
         let mut runs = 0;
         while let Ok((idx, bit_vec, sig, pub_key, bit_vec2, sig2, pub2)) = self.signature_receiver.recv().await {
             runs+=1;
@@ -157,9 +156,9 @@ impl DepthBasedInternalAggregator {
 
         let time_now = Instant::now();
 
-        println!("Got all the sigs {} at depth {} total time {} {} {}", biggest_result_map.len(), self.depth, total_time, setup_time, total_count_time);
+        println!("Got all the sigs {} at depth {} total time {} {}", biggest_result_map.len(), self.depth, total_time, setup_time);
         let proposal_copy = self.proposal.clone();
-        let biggest_future = RUN_POOL.spawn_blocking(move || {
+        let biggest_future = RUN_POOL.spawn(async move {
             // do some expensive computation
             let mut pub_vec = Vec::new();
             let mut sig_vec = Vec::new();
@@ -171,7 +170,7 @@ impl DepthBasedInternalAggregator {
             // let agg_pub = AggregatePublicKey::aggregate(&pub_vec, false).unwrap().to_public_key();
             let agg_sig = AggregateSignature::aggregate(&sig_vec, false).unwrap().to_signature();
 
-            // not necessary.
+            // debug code - not necessary.
             // if !agg_sig.verify(false, &proposal_copy, DST, &[], &agg_pub, false).eq(&BLST_SUCCESS) {
             //    panic!("Failed to verify agg signature");
             // }
@@ -179,7 +178,7 @@ impl DepthBasedInternalAggregator {
         });
 
         let proposal_copy2 = self.proposal.clone();
-        let random_future = RUN_POOL.spawn_blocking(move || {
+        let random_future = RUN_POOL.spawn(async move {
             // do some expensive computation
             let mut pub_vec = Vec::new();
             let mut sig_vec = Vec::new();
@@ -196,7 +195,7 @@ impl DepthBasedInternalAggregator {
             //let agg_pub = AggregatePublicKey::aggregate(&pub_vec, false).unwrap().to_public_key();
             let agg_sig = AggregateSignature::aggregate(&sig_vec, false).unwrap().to_signature();
 
-            // not necessary.
+            // debug code - not necessary.
             // if !agg_sig.verify(false, &proposal_copy2, DST, &[], &agg_pub, false).eq(&BLST_SUCCESS) {
             //    panic!("Failed to verify agg signature");
             // }
@@ -246,17 +245,9 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
     let m_copy = m.clone();
     let participation_modifier = participation_modifier.clone();
 
-    // Untimed: sum of the simulated non-participants per child group (group ids 0..m/16).
-    let restores: Arc<Vec<AggregatePublicKey>> = Arc::new(
-        (0..m / 16)
-            .map(|g| sum_simulated_missing(
-                &public_keys[g * expected_sigs..(g + 1) * expected_sigs],
-                participation_modifier,
-            ))
-            .collect(),
-    );
-
+    let caches: Arc<Vec<OnceLock<AggregatePublicKey>>> = Arc::new((0..m / 16).map(|_| OnceLock::new()).collect());
     RUN_POOL.spawn(async move {
+
         for _ in 0..m_copy {
             let mut rx = local_sender.subscribe();
             let port_string = port.to_string();
@@ -265,7 +256,7 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
             let local_proposal_copy = proposal_copy.clone();
             let local_expected_sigs = expected_sigs_copy.clone();
             let participation_modifier = participation_modifier.clone();
-            let restores = restores.clone();
+            let cache_clone = caches.clone();
             match listener.accept().await {
                 Ok((mut socket, address)) => {
 
@@ -337,10 +328,10 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
                             // Based on participation rate we "skip" 1/3 of pubs here.
                             let start_index = group_id * local_expected_sigs;
                             let pks = &local_public_keys_copy[start_index..start_index + local_expected_sigs];
-                            let restore = &restores[group_id];
 
-                            let agg_pub  = sum_participating(pks, &bit_vec,  participation_modifier, restore);
-                            let pub_key2 = sum_participating(pks, &bit_vec2, participation_modifier, restore);
+                            let cache = &cache_clone[group_id];
+                            let agg_pub  = group_key(cache, pks, &bit_vec,  participation_modifier);
+                            let pub_key2 = group_key(cache, pks, &bit_vec2, participation_modifier);
 
                             // This verify is only necessary in the worst case here. For a best/avg-case simulation we can drop this.
                             if sig.verify(false, &local_proposal_copy, DST, &[], &agg_pub.to_public_key(), false).eq(&BLST_SUCCESS) {
@@ -366,25 +357,18 @@ pub async fn connect_to_child_nodes(ip: String, m: usize, base_port: usize, prop
     });
 }
 
-/// Untimed precomputation: sum of the keys the participation simulation excludes (i % pm == 0).
-pub fn sum_simulated_missing(pks: &[PublicKey], pm: usize) -> AggregatePublicKey {
-    crypto::sum_selected_pubs(pks.iter().step_by(pm))
-}
-
-/// From-scratch aggregation under simulated participation.
-/// Timed cost: the participating keys (bit set and i % pm != 0).
-/// `restore` (precomputed, 1 point op) re-adds the simulated non-participants so the
-/// simulator's fully signed aggregate still verifies.
-pub fn sum_participating(
-    pks: &[PublicKey],
-    bits: &BitVec,
-    pm: usize,
-    restore: &AggregatePublicKey,
-) -> AggregatePublicKey {
-    let mut pk = crypto::sum_selected_pubs(
-        bits.iter().enumerate().filter(|(i, a)| *a && i % pm != 0).map(|(i, _)| &pks[i]),
-    );
-    pk.add_aggregate(restore);
+fn group_key(cache: &OnceLock<AggregatePublicKey>, pks: &[PublicKey], bits: &BitVec, pm: usize) -> AggregatePublicKey {
+    let full = match cache.get() {
+        Some(f) => *f,
+        None => {
+            let f = crypto::sum_pubs(pks);
+            let _ = cache.set(f);
+            f
+        }
+    };
+    let missing = crypto::sum_selected_pubs(pks.iter().step_by(pm));
+    let mut pk = crypto::sub(&full, &missing);
+    pk.add_aggregate(&missing);
     pk
 }
 
@@ -397,6 +381,7 @@ pub async fn setup_parent_connections(ip: String, base_port : usize, range: usiz
             let port = base_port + i;
             let addr = format!("{}:{}", ip, port);
             let mut stream = TcpStream::connect(&addr).await.unwrap();
+            stream.set_nodelay(true).unwrap();
 
             // Spawn a task to accept connections on this listener
             let mut rx = rx.subscribe();
@@ -421,12 +406,12 @@ pub async fn setup_parent_connections(ip: String, base_port : usize, range: usiz
                     println!("send to: {} {} {}", i.clone(), port.clone(), bit_vec.len());
 
                     let index: usize = 0;
-                    stream.write(&index.to_be_bytes()).await.unwrap();
-                    stream.write(&bit_vec.to_bytes()).await.unwrap();
-                    stream.write(&agg_sig.to_bytes()).await.unwrap();
-                    stream.write(&bit_vec2.to_bytes()).await.unwrap();
-                    stream.write(&agg_sig2.to_bytes()).await.unwrap();
-                    stream.write(&personal_sig.to_bytes()).await.unwrap();
+                    stream.write_all(&index.to_be_bytes()).await.unwrap();
+                    stream.write_all(&bit_vec.to_bytes()).await.unwrap();
+                    stream.write_all(&agg_sig.to_bytes()).await.unwrap();
+                    stream.write_all(&bit_vec2.to_bytes()).await.unwrap();
+                    stream.write_all(&agg_sig2.to_bytes()).await.unwrap();
+                    stream.write_all(&personal_sig.to_bytes()).await.unwrap();
                 }
             });
         }

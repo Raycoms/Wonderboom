@@ -210,6 +210,8 @@ pub async fn setup_leaf_nodes(
         // Spawn a task to accept connections on this listener
         PREPARE_POOL.spawn(async move {
             let mut stream = TcpStream::connect(&addr).await.unwrap();
+            stream.set_nodelay(true).unwrap();
+
             let mut depth_channel = depth_channel.subscribe();
 
             // Spawn a new task for each connection
@@ -217,9 +219,9 @@ pub async fn setup_leaf_nodes(
 
             depth_channel.recv().await.unwrap();
 
-            stream.write(&i.to_be_bytes()).await.unwrap();
+            stream.write_all(&i.to_be_bytes()).await.unwrap();
 
-            stream.write(&clone[i].to_bytes()).await.unwrap();
+            stream.write_all(&clone[i].to_bytes()).await.unwrap();
 
             // Await second channel to close connection.
             rx.recv().await.unwrap();
@@ -275,6 +277,7 @@ pub async fn setup_children_connections(simulator: &Simulator, depth_channel: Se
         PREPARE_POOL.spawn(async move {
             let addr = format!("{}:{}", "aggregator2", 30_000);
             let mut stream = TcpStream::connect(&addr).await.unwrap();
+            stream.set_nodelay(true).unwrap();
 
             let local_idx = i / 16;
             let priv_key = priv_keys.get(local_idx).unwrap().clone();
@@ -295,11 +298,11 @@ pub async fn setup_children_connections(simulator: &Simulator, depth_channel: Se
 
             rx.recv().await.unwrap();
 
-            stream.write(&local_idx.to_be_bytes()).await.unwrap();
+            stream.write_all(&local_idx.to_be_bytes()).await.unwrap();
 
-            stream.write(&bit_vec.to_bytes()).await.unwrap();
-            stream.write(&agg_sig.to_bytes()).await.unwrap();
-            stream.write(&personal_sig.to_bytes()).await.unwrap();
+            stream.write_all(&bit_vec.to_bytes()).await.unwrap();
+            stream.write_all(&agg_sig.to_bytes()).await.unwrap();
+            stream.write_all(&personal_sig.to_bytes()).await.unwrap();
         });
     }
 }
@@ -353,6 +356,8 @@ pub async fn setup_depth_children_connections(simulator: &Simulator, base_port: 
 
         PREPARE_POOL.spawn(async move {
             let mut stream = TcpStream::connect(&addr).await.unwrap();
+            stream.set_nodelay(true).unwrap();
+
             let copy = data_copy.get(&reverse_idx).unwrap();
             let sub_copy = copy.get(local_idx);
             if sub_copy.is_none() {
@@ -370,15 +375,15 @@ pub async fn setup_depth_children_connections(simulator: &Simulator, base_port: 
 
             let personal_sig = priv_key.sign(&msg_bytes, DST, &[]);
 
-            stream.write(&local_idx.to_be_bytes()).await.unwrap();
+            stream.write_all(&local_idx.to_be_bytes()).await.unwrap();
 
-            stream.write(&bit_vec.to_bytes()).await.unwrap();
-            stream.write(&agg_sig.to_bytes()).await.unwrap();
+            stream.write_all(&bit_vec.to_bytes()).await.unwrap();
+            stream.write_all(&agg_sig.to_bytes()).await.unwrap();
 
-            stream.write(&bit_vec.to_bytes()).await.unwrap();
-            stream.write(&agg_sig.to_bytes()).await.unwrap();
+            stream.write_all(&bit_vec.to_bytes()).await.unwrap();
+            stream.write_all(&agg_sig.to_bytes()).await.unwrap();
 
-            stream.write(&personal_sig.to_bytes()).await.unwrap();
+            stream.write_all(&personal_sig.to_bytes()).await.unwrap();
         });
     }
 }

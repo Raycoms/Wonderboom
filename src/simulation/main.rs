@@ -67,10 +67,7 @@ pub(crate) async fn main() {
         m = args[1].parse::<usize>().unwrap();
     }
 
-    let mut program : String = "wonderboom".to_string();
-    if args.len() > 2 {
-        program = args[2].parse::<String>().unwrap();
-    }
+    let program = args.get(3).cloned().unwrap_or_else(|| "wonderboom".to_string());
 
     let additional_depth = 2;
     let leader_divider = 1;
