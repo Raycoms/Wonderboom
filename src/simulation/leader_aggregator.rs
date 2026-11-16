@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use std::collections::{BTreeMap};
-use std::sync::{Arc};
+use std::sync::{Arc, OnceLock};
 use async_channel::{Receiver, Sender};
 use bit_vec::BitVec;
 use blst::{byte};
@@ -81,7 +81,6 @@ impl LeaderAggregator {
                 }
             } else {
                 biggest_result_map.insert(idx, (bit_vec.clone(), sig, pub_key));
-                continue
             }
 
             if runs >= 2048 * 16 {
@@ -129,11 +128,7 @@ pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_
     let proposal_copy = proposal.clone();
     let m_copy = m.clone();
 
-    let restores: Arc<Vec<AggregatePublicKey>> = Arc::new(
-        (0..32 * 64)
-            .map(|g| sum_simulated_missing(&public_keys[g * m..(g + 1) * m], participation_modifier))
-            .collect(),
-    );
+    let caches: Arc<Vec<OnceLock<AggregatePublicKey>>> = Arc::new((0..m / 16).map(|_| OnceLock::new()).collect());
 
     RUN_POOL.spawn(async move {
         for _ in 0..(32*64) {
@@ -141,9 +136,10 @@ pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_
             let local_sender_copy = sender_copy.clone();
             let local_public_keys_copy = public_keys_copy.clone();
             let local_proposal_copy = proposal_copy.clone();
+            let participation_modifier = participation_modifier.clone();
             match listener.accept().await {
                 Ok((mut socket, address)) => {
-                    let local_restores = restores.clone();
+                    let cache_clone = caches.clone();
                     RUN_POOL.spawn(async move {
                         // We atm only need a single connection per port here (saves us from having a lot of thread doing nothing).
 
@@ -185,18 +181,23 @@ pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_
 
                         let mut msg = sig_buffer.to_vec();
                         msg.append(&mut bit_vec_buffer.to_vec());
-
                         let start_index = group_id * m_copy;
                         let pks = &local_public_keys_copy[start_index..start_index + m_copy];
-                        let restore = &local_restores[group_id];
+
+                        // Same model as Wonderboom's group_key: full committee key once, then each copy
+                        // pays for subtracting the 1/pm simulated missing keys (re-added so the sig verifies).
+                        let full = crypto::sum_pubs(pks);
 
                         for _ in 0..16 {
                             if !personal_sig.verify(false, &msg, DST, &[], &local_public_keys_copy[group_id], false).eq(&BLST_SUCCESS) {
                                 println!("1 Invalid Sig from {}", address);
                                 continue;
                             }
-                            // From scratch over the participating keys, as in the depth-based aggregator.
-                            let pub_key = sum_participating(pks, &bit_vec, participation_modifier, restore).to_public_key();
+                            let missing = crypto::sum_selected_pubs(pks.iter().step_by(participation_modifier));
+                            let mut pk = crypto::sub(&full, &missing);
+                            pk.add_aggregate(&missing);
+                            let pub_key = pk.to_public_key();
+
                             if sig.verify(false, &local_proposal_copy, DST, &[], &pub_key, false).eq(&BLST_SUCCESS) {
                                 local_sender_copy.send((group_id, bit_vec.clone(), sig, pub_key)).await.unwrap();
                             } else {
@@ -216,24 +217,17 @@ pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_
     });
 }
 
-/// Untimed precomputation: sum of the keys the participation simulation excludes (i % pm == 0).
-pub fn sum_simulated_missing(pks: &[PublicKey], pm: usize) -> AggregatePublicKey {
-    crypto::sum_selected_pubs(pks.iter().step_by(pm))
-}
-
-/// From-scratch aggregation under simulated participation.
-/// Timed cost: the participating keys (bit set and i % pm != 0).
-/// `restore` (precomputed, 1 point op) re-adds the simulated non-participants so the
-/// simulator's fully signed aggregate still verifies.
-pub fn sum_participating(
-    pks: &[PublicKey],
-    bits: &BitVec,
-    pm: usize,
-    restore: &AggregatePublicKey,
-) -> AggregatePublicKey {
-    let mut pk = crypto::sum_selected_pubs(
-        bits.iter().enumerate().filter(|(i, a)| *a && i % pm != 0).map(|(i, _)| &pks[i]),
-    );
-    pk.add_aggregate(restore);
+fn group_key(cache: &OnceLock<AggregatePublicKey>, pks: &[PublicKey], bits: &BitVec, pm: usize) -> AggregatePublicKey {
+    let full = match cache.get() {
+        Some(f) => *f,
+        None => {
+            let f = crypto::sum_pubs(pks);
+            let _ = cache.set(f);
+            f
+        }
+    };
+    let missing = crypto::sum_selected_pubs(pks.iter().step_by(pm));
+    let mut pk = crypto::sub(&full, &missing);
+    pk.add_aggregate(&missing);
     pk
 }

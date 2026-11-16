@@ -221,15 +221,16 @@ pub async fn connect_to_leaf_nodes_send(sender: &mut Sender<()>, signature: Sign
 
             match listener.accept().await {
                 Ok((mut socket, address)) => {
+                    socket.set_nodelay(true).unwrap();
                     RUN_POOL.spawn(async move {
                         rx.recv().await.unwrap();
 
                         if i_clone == 1 {
                             depth_channel.send(()).unwrap();
                         }
-                        socket.write(&i_clone.to_be_bytes()).await.unwrap();
+                        socket.write_all(&i_clone.to_be_bytes()).await.unwrap();
 
-                        socket.write(&sig_copy.to_bytes()).await.unwrap();
+                        socket.write_all(&sig_copy.to_bytes()).await.unwrap();
                     });
                 }
                 e => {
