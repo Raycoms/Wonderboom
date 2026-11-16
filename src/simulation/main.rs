@@ -53,8 +53,8 @@ pub(crate) async fn main() {
         m = args[1].parse::<usize>().unwrap();
     }
 
-    // Participation modifier for cost calculation. It's 2x3 (3 for 1/3) for 2/3 participation and 2*10 for 9/10, and 2*100 for 99/100
-    let mut participation_modifier = 6;
+    // Participation modifier for cost calculation.
+    let mut participation_modifier = 3;
 
     if args.len() > 3 {
         participation_modifier = args[3].parse::<usize>().unwrap();
@@ -75,7 +75,7 @@ pub(crate) async fn main() {
         println!("Finished preparing Simulator");
 
         // Set up validator connections.
-        let mut leader_aggregator = LeaderAggregator::new(m, &proposal, public_keys.clone());
+        let mut leader_aggregator = LeaderAggregator::new(m, &proposal, public_keys.clone(), participation_modifier);
         leader_aggregator.open_connections().await;
 
         let mut leaf_aggregator = LeafAggregator::new(&proposal, public_keys.clone(), private_keys.clone(), participation_modifier, m, agg_sig, signatures.get(0).unwrap().clone(), depth_channel_leaf.clone(), depth_channel_agg.clone());

@@ -4,13 +4,14 @@ use std::sync::Arc;
 use bit_vec::BitVec;
 use blst::{byte};
 use blst::BLST_ERROR::BLST_SUCCESS;
-use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey, Signature};
+use blst::min_pk::{AggregatePublicKey, PublicKey, SecretKey, Signature};
 use futures::SinkExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::simulation::main::{DST, PREPARE_POOL, RUN_POOL};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc};
 use tokio::sync::broadcast::Sender;
+use crate::simulation::crypto;
 
 pub struct LeafAggregator {
     // Proposal byte vector.
@@ -111,7 +112,6 @@ impl LeafAggregator {
             let m = self.m;
             let local_public_keys = self.public_keys.clone();
             let i_clone = i.clone();
-            let m_copy = self.m.clone();
 
             //let proposal  = self.proposal.clone();
             RUN_POOL.spawn(async move {
@@ -136,12 +136,12 @@ impl LeafAggregator {
                     }
                 }
 
-                let sig_refs: Vec<&Signature> = sig_vec.iter().collect();
-                let agg_sig = AggregateSignature::aggregate(&sig_refs, false).unwrap();
-                let agg_pub = AggregatePublicKey::aggregate(&pub_vec, false).unwrap();
+                let len = pub_vec.len();
+                let agg_sig = crypto::sum_sigs(&sig_vec);
+                let agg_pub = crypto::sum_selected_pubs(pub_vec);
 
                 //agg_sig.to_signature().verify(false, &proposal, DST, &[], &agg_pub.to_public_key(), false);
-                final_agg_sender_copy.send((pub_bit_vec, agg_sig, agg_pub, pub_vec.len())).await.unwrap();
+                final_agg_sender_copy.send((pub_bit_vec, agg_sig, agg_pub, len)).await.unwrap();
             });
         }
 
@@ -170,23 +170,19 @@ impl LeafAggregator {
         let workers = RUN_POOL.metrics().num_workers();
         for i in 0..workers {
             let share = self.public_keys.len().div_ceil(workers);
-            let mut pubs_cache_copy = self.pub_cache.get(i).unwrap().clone();
+            let pubs_cache_copy = self.pub_cache.get(i).unwrap().clone();
             let pubs_copy = self.public_keys.clone();
 
             let j = i.clone() * share;
             handles.push(RUN_POOL.spawn(async move {
-                for index in j..(j+share).min(pubs_copy.len()) {
-                    if index % participation_modifier == 0 {
-                        pubs_cache_copy.add_public_key(&invert_pub(pubs_copy.get(index).unwrap()), false).unwrap();
-                    }
-                }
-
-                for index in j..(j+share).min(pubs_copy.len()) {
-                    if index % participation_modifier == 0 {
-                        pubs_cache_copy.add_public_key(pubs_copy.get(index).unwrap(), false).unwrap();
-                    }
-                }
-                pubs_cache_copy.to_public_key()
+                let missing = crypto::sum_selected_pubs(
+                    (j..(j + share).min(pubs_copy.len()))
+                        .filter(|i| i % participation_modifier == 0)
+                        .map(|i| &pubs_copy[i]),
+                );
+                let mut pk = crypto::sub(&pubs_cache_copy, &missing);
+                pk.add_aggregate(&missing);
+                pk.to_public_key()
             }));
         }
 
@@ -205,16 +201,6 @@ impl LeafAggregator {
             panic!("Failed to verify agg signature");
         }
     }
-}
-
-pub fn invert_pub(pk: &PublicKey) -> PublicKey {
-    let affine: &blst::blst_p1_affine = pk.into();
-    let mut p1 = blst::blst_p1::default();
-    unsafe { blst::blst_p1_from_affine(&mut p1, affine) };
-    unsafe { blst::blst_p1_cneg(&mut p1, true) };
-    let mut neg_affine = blst::blst_p1_affine::default();
-    unsafe { blst::blst_p1_to_affine(&mut neg_affine, &p1) };
-    PublicKey::from(neg_affine)
 }
 
 pub async fn connect_to_leaf_nodes_send(sender: &mut Sender<()>, signature: Signature, m: usize, depth_channel_leaf: broadcast::Sender<()>) {
@@ -268,6 +254,7 @@ pub async fn connect_to_leaf_nodes_receive(signature_sender: async_channel::Send
         let tx_clone = signature_sender.clone();
         RUN_POOL.spawn(async move {
             let mut stream = TcpStream::connect(&addr).await.unwrap();
+            stream.set_nodelay(true).unwrap();
 
             // Wait to start reading messages.
             local_sender.recv().await.unwrap();
@@ -300,6 +287,8 @@ pub async fn setup_leader_connection(sender: &mut Sender<(BitVec, Signature)>, p
 
     RUN_POOL.spawn(async move {
         let mut stream = TcpStream::connect(&addr).await.unwrap();
+        stream.set_nodelay(true).unwrap();
+
 
         // Connect to parent for sending.
         // Just send a single message and disconnect.
@@ -312,10 +301,10 @@ pub async fn setup_leader_connection(sender: &mut Sender<(BitVec, Signature)>, p
             depth_channel_agg.send(()).unwrap();
 
             let index: usize = 0;
-            stream.write(&index.to_be_bytes()).await.unwrap();
-            stream.write(&bit_vec.to_bytes()).await.unwrap();
-            stream.write(&agg_sig.to_bytes()).await.unwrap();
-            stream.write(&personal_sig.to_bytes()).await.unwrap();
+            stream.write_all(&index.to_be_bytes()).await.unwrap();
+            stream.write_all(&bit_vec.to_bytes()).await.unwrap();
+            stream.write_all(&agg_sig.to_bytes()).await.unwrap();
+            stream.write_all(&personal_sig.to_bytes()).await.unwrap();
         }
     });
 }

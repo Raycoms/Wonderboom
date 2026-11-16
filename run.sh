@@ -8,13 +8,13 @@ echo "10.0.0.1  leaf" >> /etc/hosts
 echo "10.0.0.2  aggregator" >> /etc/hosts
 echo "10.0.0.3  leader" >> /etc/hosts
 
-tc qdisc add dev eth0 root netem delay 100ms
-tc qdisc add dev lo root netem delay 100ms
+tc qdisc add dev eth0 root netem delay 100ms limit 1000000
+tc qdisc add dev lo root netem delay 100ms limit 1000000
 
 ulimit -n 200000
 
-configurations="512 650 820 1018 1250"
-cores="4"
+configurations="300 396 512 653 820 1018 1250"
+cores="2 4 6 8"
 
 for x in $configurations; do
     for y in $cores; do

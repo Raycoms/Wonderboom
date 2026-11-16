@@ -10,6 +10,7 @@ use blst::min_pk::{AggregatePublicKey, AggregateSignature, PublicKey, Signature}
 use tokio::io::{AsyncReadExt};
 use tokio::net::{TcpListener};
 use tokio::sync::{broadcast};
+use crate::simulation::crypto;
 use crate::simulation::main::{DST, RUN_POOL};
 
 pub struct LeaderAggregator {
@@ -22,6 +23,7 @@ pub struct LeaderAggregator {
     pub public_keys: Arc<Vec<PublicKey>>,
     // Channel to hand signatures that come from the children and process them.
     pub signature_receiver: Receiver<(usize,BitVec, Signature, PublicKey)>,
+    pub participation_rate: usize
 }
 
 impl Default for LeaderAggregator {
@@ -32,17 +34,19 @@ impl Default for LeaderAggregator {
             child_channels: broadcast::Sender::new(2),
             public_keys: Arc::new(Vec::new()),
             signature_receiver: async_channel::unbounded().1,
+            participation_rate: 3
         }
     }
 }
 
 impl LeaderAggregator {
 
-    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>) -> Self {
+    pub fn new(m: usize, proposal: &Vec<u8>, public_keys: Arc<Vec<PublicKey>>, participation_rate: usize) -> Self {
         LeaderAggregator {
             m,
             proposal: Arc::new(proposal.clone()),
             public_keys: public_keys.clone(),
+            participation_rate,
             ..Default::default()
         }
     }
@@ -50,7 +54,7 @@ impl LeaderAggregator {
     pub async fn open_connections(&mut self) {
 
         let (signature_sender, signature_receiver) = async_channel::bounded(2048*16);
-        connect_to_child_nodes(self.m, &self.proposal, &self.public_keys, &mut self.child_channels, signature_sender).await;
+        connect_to_child_nodes(self.m, &self.proposal, &self.public_keys, &mut self.child_channels, signature_sender, self.participation_rate).await;
         self.signature_receiver=signature_receiver;
 
         println!("Finished preparing internal aggregator connections");
@@ -87,25 +91,15 @@ impl LeaderAggregator {
 
         println!("Got all the sigs {}", biggest_result_map.len());
 
-        let biggest_future = RUN_POOL.spawn_blocking(move || {
-            // do some expensive computation
-            let mut pub_vec = Vec::new();
-            let mut sig_vec = Vec::new();
+        let biggest_future = RUN_POOL.spawn(async move {
             let mut result_bit_vec = BitVec::new();
-            for (idx, (bit_vec, sig, pub_key)) in biggest_result_map.iter() {
+            let mut sig_vec = Vec::with_capacity(biggest_result_map.len());
+            for (_, (bit_vec, sig, _)) in biggest_result_map.iter() {
                 result_bit_vec.extend(bit_vec);
                 sig_vec.push(sig);
-                pub_vec.push(pub_key);
             }
-
-            // let agg_pub = AggregatePublicKey::aggregate(&pub_vec, false).unwrap().to_public_key();
-            let agg_sig = AggregateSignature::aggregate(&sig_vec, false).unwrap().to_signature();
-
-            //disable, not necessary.
-            //if !agg_sig.verify(false, &proposal_copy, DST, &[], &agg_pub, false).eq(&BLST_SUCCESS) {
-            //    panic!("Failed to verify agg signature");
-            //}
-            return (result_bit_vec, agg_sig);
+            let agg_sig = crypto::sum_selected_sigs(sig_vec).to_signature();
+            (result_bit_vec, agg_sig)
         });
 
         let (biggest_bit_vec, biggest_agg_sig) = biggest_future.await.unwrap();
@@ -120,7 +114,7 @@ impl LeaderAggregator {
 }
 
 // connect to m child nodes. So we assume they're al
-pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_keys: &Arc<Vec<PublicKey>>, sender: &broadcast::Sender<()>, signature_sender: Sender<(usize, BitVec, Signature, PublicKey)>) {
+pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_keys: &Arc<Vec<PublicKey>>, sender: &broadcast::Sender<()>, signature_sender: Sender<(usize, BitVec, Signature, PublicKey)>, participation_modifier: usize) {
 
     // Listen on base port for connection attempts.
     let port = 10_000;
@@ -134,16 +128,22 @@ pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_
     let public_keys_copy = public_keys.clone();
     let proposal_copy = proposal.clone();
     let m_copy = m.clone();
+
+    let restores: Arc<Vec<AggregatePublicKey>> = Arc::new(
+        (0..32 * 64)
+            .map(|g| sum_simulated_missing(&public_keys[g * m..(g + 1) * m], participation_modifier))
+            .collect(),
+    );
+
     RUN_POOL.spawn(async move {
         for _ in 0..(32*64) {
             let mut rx = local_sender.subscribe();
-            let port_string = port.to_string();
             let local_sender_copy = sender_copy.clone();
             let local_public_keys_copy = public_keys_copy.clone();
             let local_proposal_copy = proposal_copy.clone();
             match listener.accept().await {
                 Ok((mut socket, address)) => {
-
+                    let local_restores = restores.clone();
                     RUN_POOL.spawn(async move {
                         // We atm only need a single connection per port here (saves us from having a lot of thread doing nothing).
 
@@ -185,27 +185,22 @@ pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_
 
                         let mut msg = sig_buffer.to_vec();
                         msg.append(&mut bit_vec_buffer.to_vec());
-                        
-                        for _ in 0..16 {
-                            if !personal_sig.verify(false, &msg, DST, &[], &local_public_keys_copy.get(group_id).unwrap(), false).eq(&BLST_SUCCESS) {
-                                println!("1 Invalid Sig from {}", address);
-                            } else {
-                                let mut pubs = Vec::new();
-                                let start_index = group_id * m_copy;
-                                for (local_index, available) in bit_vec.iter().enumerate() {
-                                    if available {
-                                        let index = start_index + local_index;
-                                        pubs.push(local_public_keys_copy.get(index).unwrap());
-                                    }
-                                }
-                                let pub_key = AggregatePublicKey::aggregate(&pubs, false).unwrap().to_public_key();
 
-                                // This verify is only necessary in the worst case here. For a best/avg-case simulation we can drop this.
-                                if sig.verify(false, &local_proposal_copy, DST, &[], &pub_key, false).eq(&BLST_SUCCESS) {
-                                    local_sender_copy.send((group_id, bit_vec.clone(), sig, pub_key)).await.unwrap();
-                                } else {
-                                    println!("FI: Invalid Sig from {} {}", group_id, address);
-                                }
+                        let start_index = group_id * m_copy;
+                        let pks = &local_public_keys_copy[start_index..start_index + m_copy];
+                        let restore = &local_restores[group_id];
+
+                        for _ in 0..16 {
+                            if !personal_sig.verify(false, &msg, DST, &[], &local_public_keys_copy[group_id], false).eq(&BLST_SUCCESS) {
+                                println!("1 Invalid Sig from {}", address);
+                                continue;
+                            }
+                            // From scratch over the participating keys, as in the depth-based aggregator.
+                            let pub_key = sum_participating(pks, &bit_vec, participation_modifier, restore).to_public_key();
+                            if sig.verify(false, &local_proposal_copy, DST, &[], &pub_key, false).eq(&BLST_SUCCESS) {
+                                local_sender_copy.send((group_id, bit_vec.clone(), sig, pub_key)).await.unwrap();
+                            } else {
+                                println!("FI: Invalid Sig from {} {}", group_id, address);
                             }
                         }
                         
@@ -221,3 +216,24 @@ pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_
     });
 }
 
+/// Untimed precomputation: sum of the keys the participation simulation excludes (i % pm == 0).
+pub fn sum_simulated_missing(pks: &[PublicKey], pm: usize) -> AggregatePublicKey {
+    crypto::sum_selected_pubs(pks.iter().step_by(pm))
+}
+
+/// From-scratch aggregation under simulated participation.
+/// Timed cost: the participating keys (bit set and i % pm != 0).
+/// `restore` (precomputed, 1 point op) re-adds the simulated non-participants so the
+/// simulator's fully signed aggregate still verifies.
+pub fn sum_participating(
+    pks: &[PublicKey],
+    bits: &BitVec,
+    pm: usize,
+    restore: &AggregatePublicKey,
+) -> AggregatePublicKey {
+    let mut pk = crypto::sum_selected_pubs(
+        bits.iter().enumerate().filter(|(i, a)| *a && i % pm != 0).map(|(i, _)| &pks[i]),
+    );
+    pk.add_aggregate(restore);
+    pk
+}

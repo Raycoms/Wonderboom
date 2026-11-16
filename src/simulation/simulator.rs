@@ -11,6 +11,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::Sender;
+use crate::simulation::crypto;
 
 pub struct Simulator {
     // fanout
@@ -54,16 +55,10 @@ impl Simulator {
 
         let mut curr_index = 0;
         for _ in 0..2048 {
-            let mut curr_pub_ref_vec = Vec::new();
-            let mut curr_sig_ref_vec = Vec::new();
-            for _ in 0..self.m {
-                curr_pub_ref_vec.push(&public_keys[curr_index]);
-                curr_sig_ref_vec.push(&signatures[curr_index]);
-                curr_index+=1;
-            }
-            let agg_pub = AggregatePublicKey::aggregate(&curr_pub_ref_vec, true).unwrap().to_public_key();
-            let agg_sig = AggregateSignature::aggregate(&curr_sig_ref_vec, false).unwrap().to_signature();
+            let agg_pub = crypto::sum_pubs(&public_keys[curr_index..curr_index + self.m]).to_public_key();
+            let agg_sig = crypto::sum_sigs(&signatures[curr_index..curr_index + self.m]).to_signature();
             agg_vec.push((agg_pub, agg_sig, BitVec::from_elem(self.m, true)));
+            curr_index += self.m;
         }
         agg_map.insert(0, agg_vec);
 
@@ -74,7 +69,7 @@ impl Simulator {
             sigs.push(sig);
         }
 
-        let agg_sig = AggregateSignature::aggregate(&sigs, false).unwrap().to_signature();
+        let agg_sig = crypto::sum_selected_sigs(sigs).to_signature();
         self.consensus_data = Arc::new(agg_map);
 
         println!("Finished Aggregation, Opening Connections");
@@ -124,7 +119,6 @@ pub async fn setup_leaf_nodes(simulator: &mut Simulator, sigs: &Arc<Vec<Signatur
             let port = 10_000 + i;
             let addr = format!("{}:{}", "leaf", port);
             let listener = TcpListener::bind(&addr).await.unwrap();
-
             let mut rx = leaf_channel.subscribe();
             let depth_channel = depth_channel_leaf.clone();
 
@@ -135,15 +129,17 @@ pub async fn setup_leaf_nodes(simulator: &mut Simulator, sigs: &Arc<Vec<Signatur
                 // We atm only need a single connection per port here (saves us from having a lot of async tasks doing nothing).
                 match listener.accept().await {
                     Ok((mut socket, addr)) => {
+                        socket.set_nodelay(true).unwrap();
+
                         // Spawn a new task for each connection
                         rx.recv().await.unwrap();
 
                         // Wait for activation message from the normal leaf.
                         rx2.recv().await.unwrap();
 
-                        socket.write(&i.to_be_bytes()).await.unwrap();
+                        socket.write_all(&i.to_be_bytes()).await.unwrap();
 
-                        socket.write(&sigs_clone[i].to_bytes()).await.unwrap();
+                        socket.write_all(&sigs_clone[i].to_bytes()).await.unwrap();
 
                         // Await second channel to close connection.
 
@@ -175,6 +171,7 @@ pub async fn connect_to_leader(simulator: &Simulator, depth_channel_agg: Sender<
         PREPARE_POOL.spawn(async move {
             let mut rx = depth_channel.subscribe();
             let mut stream = TcpStream::connect(&format!("{}:{}", "leader", 10_000)).await.unwrap();
+            stream.set_nodelay(true).unwrap();
             rx.recv().await.unwrap();
 
             let copy = data_copy.get(&0).unwrap();
@@ -191,11 +188,11 @@ pub async fn connect_to_leader(simulator: &Simulator, depth_channel_agg: Sender<
 
             let personal_sig = priv_key.sign(&msg_bytes, DST, &[]);
 
-            stream.write(&local_idx.to_be_bytes()).await.unwrap();
+            stream.write_all(&local_idx.to_be_bytes()).await.unwrap();
 
-            stream.write(&bit_vec.to_bytes()).await.unwrap();
-            stream.write(&agg_sig.to_bytes()).await.unwrap();
-            stream.write(&personal_sig.to_bytes()).await.unwrap();
+            stream.write_all(&bit_vec.to_bytes()).await.unwrap();
+            stream.write_all(&agg_sig.to_bytes()).await.unwrap();
+            stream.write_all(&personal_sig.to_bytes()).await.unwrap();
         });
     }
 }
@@ -212,7 +209,7 @@ pub async fn connect_to_leaf_as_leaf(simulator: &Simulator) {
         PREPARE_POOL.spawn(async move {
             let mut stream = TcpStream::connect(&addr).await.unwrap();
 
-            let mut buffer = [0; 96];
+            let mut buffer = [0; 104];
             stream.read_exact(&mut buffer).await.unwrap();
 
             rx.recv().await.unwrap();
