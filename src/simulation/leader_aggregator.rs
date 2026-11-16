@@ -128,8 +128,7 @@ pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_
     let proposal_copy = proposal.clone();
     let m_copy = m.clone();
 
-    let caches: Arc<Vec<OnceLock<AggregatePublicKey>>> = Arc::new((0..m / 16).map(|_| OnceLock::new()).collect());
-
+    let caches: Arc<Vec<OnceLock<AggregatePublicKey>>> = Arc::new((0..32 * 64).map(|_| OnceLock::new()).collect());
     RUN_POOL.spawn(async move {
         for _ in 0..(32*64) {
             let mut rx = local_sender.subscribe();
@@ -184,19 +183,12 @@ pub async fn connect_to_child_nodes(m: usize, proposal: &Arc<Vec<byte>>, public_
                         let start_index = group_id * m_copy;
                         let pks = &local_public_keys_copy[start_index..start_index + m_copy];
 
-                        // Same model as Wonderboom's group_key: full committee key once, then each copy
-                        // pays for subtracting the 1/pm simulated missing keys (re-added so the sig verifies).
-                        let full = crypto::sum_pubs(pks);
-
                         for _ in 0..16 {
                             if !personal_sig.verify(false, &msg, DST, &[], &local_public_keys_copy[group_id], false).eq(&BLST_SUCCESS) {
                                 println!("1 Invalid Sig from {}", address);
                                 continue;
                             }
-                            let missing = crypto::sum_selected_pubs(pks.iter().step_by(participation_modifier));
-                            let mut pk = crypto::sub(&full, &missing);
-                            pk.add_aggregate(&missing);
-                            let pub_key = pk.to_public_key();
+                            let pub_key = group_key(&cache_clone[group_id], pks, &bit_vec, participation_modifier).to_public_key();
 
                             if sig.verify(false, &local_proposal_copy, DST, &[], &pub_key, false).eq(&BLST_SUCCESS) {
                                 local_sender_copy.send((group_id, bit_vec.clone(), sig, pub_key)).await.unwrap();
